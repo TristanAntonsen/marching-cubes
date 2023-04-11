@@ -1,23 +1,20 @@
+use marching_cubes::{VoxelGrid, Vertex, ORIGIN};
+use nalgebra::{Point3, distance};
+
 fn main() {
 
-    for n in 0..10 {
-        println!("{}", fun_test(n as f64, &square))
-    }
+    let bounds = [
+        Point3::new(-50., -50., -50.),
+        Point3::new(50., 50., 50.)
 
-    for n in 0..10 {
-        println!("{}", fun_test(n as f64, &halve))
-    }
+    ];
+    let mut voxels = VoxelGrid::new_from_aabb(bounds, 1.0);
+    voxels.eval(&sphere, 20.0);
+    voxels.export_voxel_data("voxels.csv").expect("Could not write .csv");
+    println!("{:?}", voxels);
 
 }
 
-fn fun_test(n : f64, f: &dyn Fn(f64) -> f64) -> f64 {
-    f(n)
-}
-
-fn square(n : f64) -> f64 {
-    n * n
-}
-
-fn halve(n : f64) -> f64 {
-    n / 2.0
+fn sphere(point : Vertex, r : f64) -> f64 {
+    distance(&ORIGIN, &point) - r
 }

@@ -1,14 +1,14 @@
-use std::{collections::HashMap, io::Write, fs};
+use std::{collections::HashMap, io::Write, fs, error::Error};
 use byteorder::{LittleEndian, WriteBytesExt};
-
 use nalgebra::{Point3, Vector3};
 use ndarray::Array3;
+use csv;
 
 // ==========================================================
 // ======================= Data types =======================
 // ==========================================================
-type Vertex = Point3<f64>;
-
+pub type Vertex = Point3<f64>;
+pub const ORIGIN : Point3<f64> = Point3::new(0.0, 0.0, 0.0);
 
 // ===========================================================
 // ================= Voxels & Marching Cubes =================
@@ -79,6 +79,23 @@ impl VoxelGrid {
         return points
     }
 
+    pub fn eval(&mut self, f: &dyn Fn(Vertex, f64) -> f64, a : f64) {
+        // Unions all sdfs
+        let mut v; //experiment
+        let mut current_point;
+        let points = self.create_points();
+        for x in 0..self.x_count {
+            for y in 0..self.y_count {
+                for z in 0..self.z_count {
+                    current_point = points[[x, y, z]];
+
+                    v = f(current_point, a);
+
+                    self.write_voxel(x, y, z, v)
+                }
+            }
+        }
+    }
 
     pub fn march(&mut self, threshold: f64) -> Mesh {
         let mut target_mesh = Mesh::new_empty();
@@ -152,6 +169,36 @@ impl VoxelGrid {
         println!("Cube count: {}",cube_count);
         return target_mesh
     }
+
+
+    pub fn export_voxel_data(&self, path: &str) -> Result<(), Box<dyn Error>> {
+        // https://levelup.gitconnected.com/working-with-csv-data-in-rust-7258163252f8
+        // Creates new `Writer` for `stdout`
+        let mut writer = csv::Writer::from_path(path)?;
+        let point_coordinates = self.create_points();
+        let mut point;
+        for _x in 0..self.x_count - 1{
+            for _y in 0..self.y_count - 1{
+                for _z in 0..self.z_count - 1{
+                    point = point_coordinates[[_x, _y, _z]];
+                    writer.write_record(&[
+                        point.x.to_string(),
+                        point.y.to_string(),
+                        point.z.to_string(),
+                        self.values[[_x,_y,_z]].to_string()  
+                    ]).expect("Something went wrong.");
+                    
+                }
+            }
+        }
+    
+        // A CSV writer maintains an internal buffer, so it's important
+        // to flush the buffer when you're done.
+        writer.flush()?;
+    
+        Ok(())
+    }
+
 
 }
 
