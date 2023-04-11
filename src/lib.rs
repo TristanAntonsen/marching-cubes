@@ -79,7 +79,7 @@ impl VoxelGrid {
         return points
     }
 
-    pub fn eval(&mut self, f: &dyn Fn(Vertex, f64) -> f64, a : f64) {
+    pub fn eval_1param(&mut self, f: &dyn Fn(Vertex, f64) -> f64, a : f64) {
         // Unions all sdfs
         let mut v; //experiment
         let mut current_point;
