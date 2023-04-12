@@ -9,5 +9,6 @@ name = "marchy"
 crate-type = ["cdylib"]
 
 [dependencies]
-pyo3 = { version = "0.16.3", features = ["extension-module"] }
-marching-cubes = { path = "/Users/tristanantonsen/Desktop/Code/marching-cubes" }
+pyo3 = { version = "0.18", features = ["extension-module"] }
+numpy = "0.18.0"
+ndarray = "0.13.0"
