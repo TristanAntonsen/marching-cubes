@@ -1,2 +1,5 @@
 /target
 /Cargo.lock
+/marchy/target
+/marchy/Cargo.lock
+/marchy/venv
