@@ -42,6 +42,18 @@ impl VoxelGrid {
         }
     }
 
+    pub fn new_empty() -> Self {
+        let zeros = Array3::<f64>::zeros((1, 1, 1));
+        Self {
+            values : zeros,
+            x_count : 1,
+            y_count : 1,
+            z_count : 1,
+            size : 0.0,
+            aabb : [ORIGIN, ORIGIN]
+        }
+    }
+
     pub fn write_voxel(&mut self, x: usize, y: usize, z: usize, value: f64) {
         self.values[[x,y,z]] = value
     }
