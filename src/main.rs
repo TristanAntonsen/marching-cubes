@@ -1,24 +1,42 @@
-use marching_cubes::{VoxelGrid, Point, ORIGIN, export_stl};
-use nalgebra::{Point3, point, distance};
+use marching_cubes::{VoxelGrid, Point, export_stl};
+use nalgebra::{point, distance};
+use std::time::Instant;
 
 fn main() {
+    let now = Instant::now();
 
+    // bounding box of voxels to march
     let bounds = [
-        Point3::new(-100., -100., -100.),
-        Point3::new(100., 100., 100.)
+        point![-100., -100., -100.],
+        point![100., 100., 100.]
     ];
+
     let mut voxels = VoxelGrid::new_from_aabb(bounds, 1.0);
+    
+    // evaluating the voxel points with the sdf function
     voxels.eval(&sdf);
+
+    // marching the volume/voxel data
     let mesh = voxels.march(0.0);
+    
+    // exporting to stl
     export_stl("marched.stl", mesh);
-    voxels.export_voxel_data("voxels.csv").expect("Could not write .csv");
+
+    // optional exporting to .csv
+    // voxels.export_voxel_data("voxels.csv").expect("Could not write .csv");
+
+
+    let elapsed = now.elapsed().as_secs_f64();
+    let s = elapsed % 60.;
+    let min = (elapsed / 60.).floor() as u8;
+    println!("\n{} min {:.2?} seconds", min, s);
 
 }
 
 // ===========================================================
 // =========== Some Distance Equations to Test With ==========
 // ===========================================================
-
+// mostly thanks to https://iquilezles.org/
 
 fn sdf(p : Point) -> f64 {
     //// Gyroid sphere
@@ -89,12 +107,9 @@ pub fn op_intersection(d1: f64, d2: f64, r: f64) -> f64 {
 }
 
 pub fn smooth_min(a: f64, b: f64, mut k: f64) -> f64 {
-    // https://iquilezles.org/articles/smin/
     // polynomial smooth min
 
-    if k < 0.00001 {
-        k = 0.00001
-    }
+    k = k.min(0.00001);
 
     let h = (k - (a - b).abs()).max(0.0) / k;
 

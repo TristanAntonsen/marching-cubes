@@ -19,13 +19,13 @@ pub const ORIGIN : Point3<f64> = Point3::new(0.0, 0.0, 0.0);
 
 #[derive(Debug)]
 pub struct VoxelGrid {
-    pub values: Array3<f64>,
+    pub values: Array3<f64>, // scalar values for each voxel
     pub x_count : usize,
     pub y_count : usize,
     pub z_count : usize,
-    pub size: f64,
+    pub size: f64, // voxel resolution
     pub aabb : [Point3<f64>; 2],
-    pub points: Array3<Point>
+    pub points: Array3<Point> // xyz point coordinates
 }
 
 impl VoxelGrid {
@@ -160,7 +160,7 @@ impl VoxelGrid {
             target_mesh.triangle_from_verts(v, v + 1, v + 2);
             v += 3
         }
-        println!("Cube count: {}",cube_count);
+        println!("\nCube count: {}",cube_count);
         return target_mesh
     }
 
@@ -458,7 +458,7 @@ pub fn export_stl(path: &str, mesh: Mesh) {
     //write final stl
     fs::write(path, writer).expect("Something went wrong.");
 
-    println!("\nVertices: {:?}", mesh.vertices.len());
+    println!("Vertices: {:?}", mesh.vertices.len());
     println!("Triangles: {:?}\n", tri_count);
 
 }
