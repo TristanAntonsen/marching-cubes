@@ -1,6 +1,6 @@
 use std::{collections::HashMap, io::Write, fs, error::Error};
 use byteorder::{LittleEndian, WriteBytesExt};
-use nalgebra::{Point3, Vector3};
+use nalgebra::{Point3, Vector3, point};
 use ndarray::Array3;
 use csv;
 
@@ -24,35 +24,50 @@ pub struct VoxelGrid {
     pub y_count : usize,
     pub z_count : usize,
     pub size: f64,
-    pub aabb : [Point3<f64>; 2]
+    pub aabb : [Point3<f64>; 2],
+    pub points: Array3<Point>
 }
 
 impl VoxelGrid {
 
     pub fn new_from_aabb(aabb : [Point3<f64>; 2], size : f64) -> Self {
-        let x = ((aabb[1].x.floor() - aabb[0].x.floor()) / size) as usize;
-        let y = ((aabb[1].y.floor() - aabb[0].y.floor()) / size) as usize;
-        let z = ((aabb[1].z.floor() - aabb[0].z.floor()) / size) as usize;
-        let zeros = Array3::<f64>::zeros((x,y,z));
-        Self {
-            values : zeros,
-            x_count : x,
-            y_count : y,
-            z_count : z,
-            size : size,
-            aabb : aabb
-        }
-    }
+        let x_count = ((aabb[1].x.floor() - aabb[0].x.floor()) / size) as usize;
+        let y_count = ((aabb[1].y.floor() - aabb[0].y.floor()) / size) as usize;
+        let z_count = ((aabb[1].z.floor() - aabb[0].z.floor()) / size) as usize;
+        let zeros = Array3::<f64>::zeros((x_count, y_count, z_count));
 
-    pub fn new_empty() -> Self {
-        let zeros = Array3::<f64>::zeros((1, 1, 1));
+        // scaled point coordinates in 3D space
+        let mut points = Array3::<Point>::default((x_count, y_count, z_count));
+
+        // vector from first quadrant to aabb
+        let x0 = aabb[0].x;
+        let y0 = aabb[0].y;
+        let z0 = aabb[0].z;
+        let xf = aabb[1].x;
+        let yf = aabb[1].y;
+        let zf = aabb[1].z;
+
+        for x in 0..x_count {
+            for y in 0..y_count {
+                for z in 0..z_count {
+                    let p = point![
+                        remap(x as f64, [0.0, x_count as f64], [x0, xf]), // moves from first quadrant to aabb
+                        remap(y as f64, [0.0, y_count as f64], [y0, yf]),
+                        remap(z as f64, [0.0, z_count as f64], [z0, zf])
+                    ];
+                    points[[x,y,z]] = p;
+                }
+            }
+        }
+        
         Self {
             values : zeros,
-            x_count : 1,
-            y_count : 1,
-            z_count : 1,
-            size : 0.0,
-            aabb : [ORIGIN, ORIGIN]
+            x_count : x_count,
+            y_count : y_count,
+            z_count : z_count,
+            size : size,
+            aabb : aabb,
+            points : points
         }
     }
 
@@ -60,47 +75,14 @@ impl VoxelGrid {
         self.values[[x,y,z]] = value
     }
 
-    pub fn create_points(&self) -> Array3<Point> {
-        // scaled point coordinates in 3D space
-        let mut points = Array3::<Point>::default((self.x_count, self.y_count, self.z_count));
-
-        // vector from first quadrant to aabb
-        let x0 = self.aabb[0].x;
-        let y0 = self.aabb[0].y;
-        let z0 = self.aabb[0].z;
-        let xf = self.aabb[1].x;
-        let yf = self.aabb[1].y;
-        let zf = self.aabb[1].z;
-
-        // example:
-        // remapping from [0, 9] to [-5, 5]
-        // 0 -> -5
-        // 1 -> -4
-        // ...
-        // 9 -> 5
-
-        for x in 0..self.x_count {
-            for y in 0..self.y_count {
-                for z in 0..self.z_count {
-                    points[[x,y,z]] = Point3::new(
-                        remap(x as f64, [0.0, self.x_count as f64], [x0, xf]), // moves from first quadrant to aabb
-                        remap(y as f64, [0.0, self.y_count as f64], [y0, yf]),
-                        remap(z as f64, [0.0, self.z_count as f64], [z0, zf]),
-                    );
-                }
-            }
-        }
-        return points
-    }
-
     pub fn eval(&mut self, f: &dyn Fn(Point) -> f64) {
         let mut v;
         let mut current_point;
-        let points = self.create_points();
+
         for x in 0..self.x_count {
             for y in 0..self.y_count {
                 for z in 0..self.z_count {
-                    current_point = points[[x, y, z]];
+                    current_point = self.points[[x, y, z]];
 
                     v = f(current_point);
 
@@ -120,7 +102,6 @@ impl VoxelGrid {
         let mut eval_corners;
         let mut cube_count = 0;
         
-        let point_coordinates = self.create_points();
 
         let edge_table = &EDGE_TABLE.map(|e| format!("{:b}",e));
         
@@ -129,7 +110,7 @@ impl VoxelGrid {
                 for z in 0..self.z_count - 1{ 
 
                     // corner positions
-                    let corner_positions = get_corner_positions(&point_coordinates, x, y, z);
+                    let corner_positions = get_corner_positions(&self.points, x, y, z);
                     // voxel values (evaluated sdf)
                     eval_corners = get_corner_values(&self, x, y, z);
 
@@ -188,12 +169,11 @@ impl VoxelGrid {
         // https://levelup.gitconnected.com/working-with-csv-data-in-rust-7258163252f8
         // Creates new `Writer` for `stdout`
         let mut writer = csv::Writer::from_path(path)?;
-        let point_coordinates = self.create_points();
         let mut point;
         for _x in 0..self.x_count - 1{
             for _y in 0..self.y_count - 1{
                 for _z in 0..self.z_count - 1{
-                    point = point_coordinates[[_x, _y, _z]];
+                    point = self.points[[_x, _y, _z]];
                     writer.write_record(&[
                         point.x.to_string(),
                         point.y.to_string(),
@@ -349,8 +329,6 @@ pub fn get_edge_endpoints(edges: &String, point_indices : &[[i8;2];12]) -> (Vec<
 
 
 pub fn edges_from_lookup(edges: &String) -> Vec<usize>{
-    // prepare for the check to see if each character = 1
-    // (doesn't seem like the right way to do this)
     let use_edge = "1".chars().next().unwrap();    // edgeTable[8] = 100000001100 -> Edges 2, 3, 11 intersected
     let mut i = (edges.len() - 1) as i32;
     let mut edges_to_use = Vec::new();
@@ -460,16 +438,16 @@ pub fn export_stl(path: &str, mesh: Mesh) {
         
         //write each Point
         let vertices = mesh.tri_coords(tri);
-        for Point in vertices {
+        for point in vertices {
             // write Point coordinates
             writer
-                .write_f32::<LittleEndian>(Point[0] as f32)
+                .write_f32::<LittleEndian>(point[0] as f32)
                 .expect("Error");
             writer
-                .write_f32::<LittleEndian>(Point[1] as f32)
+                .write_f32::<LittleEndian>(point[1] as f32)
                 .expect("Error");
             writer
-                .write_f32::<LittleEndian>(Point[2] as f32)
+                .write_f32::<LittleEndian>(point[2] as f32)
                 .expect("Error");
         }
         //write attribute byte count
