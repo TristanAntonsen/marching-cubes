@@ -13,13 +13,6 @@ pub const ORIGIN : Point3<f64> = Point3::new(0.0, 0.0, 0.0);
 
 
 // ===========================================================
-// ===================== Direct Marching =====================
-// ===========================================================
-
-// Marching without creating a voxel grid first
-
-
-// ===========================================================
 // ================= Voxels & Marching Cubes =================
 // ===========================================================
 
@@ -110,22 +103,6 @@ impl VoxelGrid {
                     current_point = points[[x, y, z]];
 
                     v = f(current_point);
-
-                    self.write_voxel(x, y, z, v)
-                }
-            }
-        }
-    }
-    pub fn eval_1param(&mut self, f: &dyn Fn(Point, f64) -> f64, a : f64) {
-        let mut v;
-        let mut current_point;
-        let points = self.create_points();
-        for x in 0..self.x_count {
-            for y in 0..self.y_count {
-                for z in 0..self.z_count {
-                    current_point = points[[x, y, z]];
-
-                    v = f(current_point, a);
 
                     self.write_voxel(x, y, z, v)
                 }
