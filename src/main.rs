@@ -1,4 +1,4 @@
-use marching_cubes::{VoxelGrid, Vertex, ORIGIN, export_stl};
+use marching_cubes::{VoxelGrid, Point, ORIGIN, export_stl};
 use nalgebra::{Point3, distance};
 
 fn main() {
@@ -15,6 +15,6 @@ fn main() {
 
 }
 
-fn sphere(point : Vertex, r : f64) -> f64 {
+fn sphere(point : Point, r : f64) -> f64 {
     distance(&ORIGIN, &point) - r
 }

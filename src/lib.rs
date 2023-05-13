@@ -7,8 +7,17 @@ use csv;
 // ==========================================================
 // ======================= Data types =======================
 // ==========================================================
-pub type Vertex = Point3<f64>;
+pub type Point = Point3<f64>;
+pub type Vector = Vector3<f64>;
 pub const ORIGIN : Point3<f64> = Point3::new(0.0, 0.0, 0.0);
+
+
+// ===========================================================
+// ===================== Direct Marching =====================
+// ===========================================================
+
+// Marching without creating a voxel grid first
+
 
 // ===========================================================
 // ================= Voxels & Marching Cubes =================
@@ -58,9 +67,9 @@ impl VoxelGrid {
         self.values[[x,y,z]] = value
     }
 
-    pub fn create_points(&self) -> Array3<Vertex> {
+    pub fn create_points(&self) -> Array3<Point> {
         // scaled point coordinates in 3D space
-        let mut points = Array3::<Vertex>::default((self.x_count, self.y_count, self.z_count));
+        let mut points = Array3::<Point>::default((self.x_count, self.y_count, self.z_count));
 
         // vector from first quadrant to aabb
         let x0 = self.aabb[0].x;
@@ -91,7 +100,7 @@ impl VoxelGrid {
         return points
     }
 
-    pub fn eval(&mut self, f: &dyn Fn(Vertex) -> f64) {
+    pub fn eval(&mut self, f: &dyn Fn(Point) -> f64) {
         let mut v;
         let mut current_point;
         let points = self.create_points();
@@ -107,7 +116,7 @@ impl VoxelGrid {
             }
         }
     }
-    pub fn eval_1param(&mut self, f: &dyn Fn(Vertex, f64) -> f64, a : f64) {
+    pub fn eval_1param(&mut self, f: &dyn Fn(Point, f64) -> f64, a : f64) {
         let mut v;
         let mut current_point;
         let points = self.create_points();
@@ -236,7 +245,7 @@ pub fn remap(s : f64, range_in : [f64; 2], range_out : [f64; 2]) -> f64 {
     range_out[0] + (s - range_in[0]) * (range_out[1] - range_out[0]) / (range_in[1] - range_in[0])
 }
 
-pub fn lerp_points(p0 : Vertex, p1 : Vertex, t : f64) -> Vec<f64> {
+pub fn lerp_points(p0 : Point, p1 : Point, t : f64) -> Vec<f64> {
 
     // may need to make this an array not a vector
     let pf : Vec<f64> = p0.iter()
@@ -300,7 +309,7 @@ pub fn get_corner_values(voxels : &VoxelGrid, x : usize, y : usize, z : usize) -
     corner_vals
 }
 
-pub fn get_corner_positions(points : &Array3<Vertex>, x : usize, y : usize, z : usize) -> Vec<Vertex> {
+pub fn get_corner_positions(points : &Array3<Point>, x : usize, y : usize, z : usize) -> Vec<Point> {
   
     // could be consolidated/more idiomatic
     let p0 = points[[x,     y,     z        ]];
@@ -316,7 +325,7 @@ pub fn get_corner_positions(points : &Array3<Vertex>, x : usize, y : usize, z : 
     
     corner_points
 }
-pub fn get_edge_midpoints(endpoint_indices : Vec<[i8; 2]>, edges_to_use : Vec<usize>, corner_positions : Vec<Vertex>, corner_values : Vec<f64>, threshold: f64) -> HashMap<usize, Vec<f64>> {
+pub fn get_edge_midpoints(endpoint_indices : Vec<[i8; 2]>, edges_to_use : Vec<usize>, corner_positions : Vec<Point>, corner_values : Vec<f64>, threshold: f64) -> HashMap<usize, Vec<f64>> {
     let (mut pair, mut edge);
     let (mut pi, mut pf, mut pe);
     let (mut vi, mut vf, mut t);
@@ -384,7 +393,7 @@ pub fn edges_from_lookup(edges: &String) -> Vec<usize>{
 #[derive(Clone)]
 pub struct Mesh {
     // vertices : [[x1, y1, z1], [x2, y2, z2]...]
-    pub vertices: Vec<Vertex>,
+    pub vertices: Vec<Point>,
     
     // tris : [[v0, v1, v2], [v3, v4, v5]]
     pub tris: Vec<[usize; 3]> // new triangles
@@ -396,7 +405,7 @@ impl Mesh {
         Self { vertices: Vec::new(), tris: Vec::new()}
     }
 
-    //create a triangle from vertex indices
+    //create a triangle from Point indices
     pub fn triangle_from_verts(&mut self, x: usize, y: usize, z: usize) {
         // x/y/z are indices
         // create a triangle from existing vertices (assumes already has vertices)
@@ -405,8 +414,8 @@ impl Mesh {
         self.tris.push(tri)
     }
 
-    //return triangle vertex coordinates
-    pub fn tri_coords(&self, tri: usize) -> Vec<Vertex> {
+    //return triangle Point coordinates
+    pub fn tri_coords(&self, tri: usize) -> Vec<Point> {
 
         let va = self.vertices[self.tris[tri][0]];
         let vb = self.vertices[self.tris[tri][1]];
@@ -417,7 +426,7 @@ impl Mesh {
     
     //return triangle normal
     pub fn tri_normal(&self, tri: usize) -> Vector3<f64> {
-        //tri = starting vertex index
+        //tri = starting Point index
 
         let va = self.vertices[self.tris[tri][0]];
         let vb = self.vertices[self.tris[tri][1]];
@@ -470,18 +479,18 @@ pub fn export_stl(path: &str, mesh: Mesh) {
             .write_f32::<LittleEndian>((normal.z) as f32)
             .expect("Error");
         
-        //write each vertex
+        //write each Point
         let vertices = mesh.tri_coords(tri);
-        for vertex in vertices {
-            // write vertex coordinates
+        for Point in vertices {
+            // write Point coordinates
             writer
-                .write_f32::<LittleEndian>(vertex[0] as f32)
+                .write_f32::<LittleEndian>(Point[0] as f32)
                 .expect("Error");
             writer
-                .write_f32::<LittleEndian>(vertex[1] as f32)
+                .write_f32::<LittleEndian>(Point[1] as f32)
                 .expect("Error");
             writer
-                .write_f32::<LittleEndian>(vertex[2] as f32)
+                .write_f32::<LittleEndian>(Point[2] as f32)
                 .expect("Error");
         }
         //write attribute byte count
