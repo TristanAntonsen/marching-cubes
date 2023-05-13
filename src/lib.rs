@@ -126,7 +126,7 @@ impl VoxelGrid {
         
         for x in 0..self.x_count - 1{
             for y in 0..self.y_count - 1{
-                for z in 0..self.z_count - 1{
+                for z in 0..self.z_count - 1{ 
 
                     // corner positions
                     let corner_positions = get_corner_positions(&point_coordinates, x, y, z);
@@ -214,6 +214,8 @@ impl VoxelGrid {
 
 
 }
+
+
 
 // ===========================================================
 
