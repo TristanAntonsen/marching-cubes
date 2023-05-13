@@ -30,9 +30,9 @@ pub struct VoxelGrid {
 impl VoxelGrid {
 
     pub fn new_from_aabb(aabb : [Point3<f64>; 2], size : f64) -> Self {
-        let x = (aabb[1].x.floor() - aabb[0].x.floor()) as usize;
-        let y = (aabb[1].y.floor() - aabb[0].y.floor()) as usize;
-        let z = (aabb[1].z.floor() - aabb[0].z.floor()) as usize;
+        let x = ((aabb[1].x.floor() - aabb[0].x.floor()) / size) as usize;
+        let y = ((aabb[1].y.floor() - aabb[0].y.floor()) / size) as usize;
+        let z = ((aabb[1].z.floor() - aabb[0].z.floor()) / size) as usize;
         let zeros = Array3::<f64>::zeros((x,y,z));
         Self {
             values : zeros,
