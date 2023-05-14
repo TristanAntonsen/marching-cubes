@@ -39,24 +39,27 @@ fn main() {
 // mostly thanks to https://iquilezles.org/
 
 fn sdf(p : Point) -> f64 {
-    //// Gyroid sphere
-    // let s = sphere(p, point![0., 0., 0.], 90.0);
-    // let g = gyroid(p, point![0., 0., 0.], 90.0, 0.25, 1.0);
+    // Gyroid sphere
+    // let s = _sphere(p, point![0., 0., 0.], 90.0);
+    let g = _gyroid(p, point![0., 0., 0.], 90.0, 0.1, 0.5);
     // op_intersection(s, g, 4.0)
-    
-    //// Blended spheres
-    let s1 = sphere(p, point![-25., -25., -25.], 50.0);
-    let s2 = sphere(p, point![25., 25., 25.], 50.0);
+    g
+    // //// Blended spheres
+    // let s1 = _sphere(p, point![-25., -25., -25.], 50.0);
+    // let s2 = _sphere(p, point![25., 25., 25.], 50.0);
 
-    op_union(s1, s2, 25.0)
+    // op_union(s1, s2, 25.0)
     
 }
 
-fn sphere(p : Point, center: Point, r : f64) -> f64 {
+fn _sphere(p : Point, center: Point, r : f64) -> f64 {
     distance(&p, &center) - r
 }
 
-pub fn gyroid(p: Point, center: Point, half_width: f64, f: f64, t: f64) -> f64 {
+pub fn _gyroid(p: Point, center: Point, half_width: f64, f: f64, t: f64) -> f64 {
+    // f: frequency
+    // t: thickness
+
     let min_pt = point![
         center.x - half_width,
         center.y - half_width,
@@ -109,7 +112,9 @@ pub fn op_intersection(d1: f64, d2: f64, r: f64) -> f64 {
 pub fn smooth_min(a: f64, b: f64, mut k: f64) -> f64 {
     // polynomial smooth min
 
-    k = k.min(0.00001);
+    if k < 0.00001 {
+        k = 0.00001
+    }
 
     let h = (k - (a - b).abs()).max(0.0) / k;
 
