@@ -2,14 +2,15 @@ use marching_cubes::{VoxelGrid, Point, export_stl};
 use nalgebra::{point, distance};
 use ndarray::Array3;
 use std::time::Instant;
+use noise::{NoiseFn, Perlin};
 
 fn main() {
     let now = Instant::now();
 
     // bounding box of voxels to march
     let bounds = [
-        point![-100.,-100., -100.],
-        point![100., 100., 100.]
+        point![-50.,-50., -50.],
+        point![50., 50., 50.]
     ];
 
     // initializing the voxels
@@ -18,23 +19,29 @@ fn main() {
 
     // creating scalar data
     let mut data = Array3::<f64>::zeros((voxels.x_count, voxels.y_count, voxels.z_count));
-    
+    let _perlin = Perlin::new(1);
+
     for x in 0..voxels.x_count {
         for y in 0..voxels.y_count {
             for z in 0..voxels.z_count {
-                let current_point = voxels.points[[x, y, z]];
+                let p = voxels.points[[x, y, z]];
 
                 // Using Signed Distance Fields to create scalar data
 
                 // Gyroid sphere
-                let s = _sphere(current_point, point![0., 0., 0.], 50.0);
-                let g = _gyroid(current_point, point![0., 0., 0.], 90.0, 0.1, 0.5);
-                let v = op_intersection(s, g, 4.0);
+                let s = _sphere(p, point![0., 0., 0.], 50.0);
+                // let g = _gyroid(p, point![0., 0., 0.], 90.0, 0.1, 0.5);
+                // let v = op_intersection(s, g, 4.0);
 
-                // //// Blended spheres
+                // Blended spheres
                 // let s1 = _sphere(p, point![-25., -25., -25.], 50.0);
                 // let s2 = _sphere(p, point![25., 25., 25.], 50.0);
                 // let v = op_union(s1, s2, 25.0)
+
+                // Perlin noise
+                let ps = 0.02 * p; // setting noise frequency
+                let per = _perlin.get([ps.x, ps.y, ps.z]);
+                let v = op_intersection(per, s, 2.0);
 
                 data[[x, y, z]] = v;
             }
