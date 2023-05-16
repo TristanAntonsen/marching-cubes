@@ -1,43 +1,39 @@
-use std::{collections::HashMap, io::Write, fs, error::Error};
 use byteorder::{LittleEndian, WriteBytesExt};
-use nalgebra::{Point3, Vector3, point};
-use ndarray::Array3;
 use csv;
+use nalgebra::{point, Point3, Vector3};
+use ndarray::Array3;
+use std::{collections::HashMap, error::Error, fs, io::Write};
 
 // ==========================================================
 // ======================= Data types =======================
 // ==========================================================
 pub type Point = Point3<f64>;
 pub type Vector = Vector3<f64>;
-pub const ORIGIN : Point3<f64> = Point3::new(0.0, 0.0, 0.0);
-
+pub const ORIGIN: Point3<f64> = Point3::new(0.0, 0.0, 0.0);
 
 // ===========================================================
 // ================= Voxels & Marching Cubes =================
 // ===========================================================
 
-
 #[derive(Debug)]
 pub struct VoxelGrid {
     pub values: Array3<f64>, // scalar values for each voxel
-    pub x_count : usize,
-    pub y_count : usize,
-    pub z_count : usize,
+    pub x_count: usize,
+    pub y_count: usize,
+    pub z_count: usize,
     pub size: f64, // voxel resolution
-    pub aabb : [Point3<f64>; 2],
-    pub points: Array3<Point> // xyz point coordinates
+    pub aabb: [Point3<f64>; 2],
+    pub points: Array3<Point>, // xyz point coordinates
 }
 
 impl VoxelGrid {
-
-    pub fn new_from_aabb(aabb : [Point3<f64>; 2], size : f64) -> Self {
+    pub fn new_from_aabb(aabb: [Point3<f64>; 2], size: f64) -> Self {
         let x_count = ((aabb[1].x.floor() - aabb[0].x.floor()) / size) as usize;
         let y_count = ((aabb[1].y.floor() - aabb[0].y.floor()) / size) as usize;
         let z_count = ((aabb[1].z.floor() - aabb[0].z.floor()) / size) as usize;
         let zeros = Array3::<f64>::zeros((x_count, y_count, z_count));
 
         // scaled point coordinates in 3D space
-        let mut points = Array3::<Point>::default((x_count, y_count, z_count));
 
         // vector from first quadrant to aabb
         let x0 = aabb[0].x;
@@ -47,6 +43,8 @@ impl VoxelGrid {
         let yf = aabb[1].y;
         let zf = aabb[1].z;
 
+        let mut points = Array3::<Point>::default((x_count, y_count, z_count));
+
         for x in 0..x_count {
             for y in 0..y_count {
                 for z in 0..z_count {
@@ -55,24 +53,24 @@ impl VoxelGrid {
                         remap(y as f64, [0.0, y_count as f64], [y0, yf]),
                         remap(z as f64, [0.0, z_count as f64], [z0, zf])
                     ];
-                    points[[x,y,z]] = p;
+                    points[[x, y, z]] = p;
                 }
             }
         }
-        
+
         Self {
-            values : zeros,
-            x_count : x_count,
-            y_count : y_count,
-            z_count : z_count,
-            size : size,
-            aabb : aabb,
-            points : points
+            values: zeros,
+            x_count: x_count,
+            y_count: y_count,
+            z_count: z_count,
+            size: size,
+            aabb: aabb,
+            points: points
         }
     }
 
     pub fn write_voxel(&mut self, x: usize, y: usize, z: usize, value: f64) {
-        self.values[[x,y,z]] = value
+        self.values[[x, y, z]] = value
     }
 
     pub fn eval(&mut self, f: &dyn Fn(Point) -> f64) {
@@ -101,14 +99,12 @@ impl VoxelGrid {
         let mut new_vert;
         let mut eval_corners;
         let mut cube_count = 0;
-        
 
-        let edge_table = &EDGE_TABLE.map(|e| format!("{:b}",e));
-        
-        for x in 0..self.x_count - 1{
-            for y in 0..self.y_count - 1{
-                for z in 0..self.z_count - 1{ 
+        let edge_table = &EDGE_TABLE.map(|e| format!("{:b}", e));
 
+        for x in 0..self.x_count - 1 {
+            for y in 0..self.y_count - 1 {
+                for z in 0..self.z_count - 1 {
                     // corner positions
                     let corner_positions = get_corner_positions(&self.points, x, y, z);
                     // voxel values (evaluated sdf)
@@ -123,29 +119,31 @@ impl VoxelGrid {
                     let edges_bin_string = &edge_table[state];
 
                     // Indices of edge endpoints (List of pairs)
-                    (endpoint_indices, edges_to_use) = get_edge_endpoints(edges_bin_string, &CORNER_POINT_INDICES);
-                    
+                    (endpoint_indices, edges_to_use) =
+                        get_edge_endpoints(edges_bin_string, &CORNER_POINT_INDICES);
+
                     // finding midpoints of edges
                     let edge_points = get_edge_midpoints(
-                        endpoint_indices, 
-                        edges_to_use, 
-                        corner_positions, 
-                        eval_corners, 
-                        threshold
+                        endpoint_indices,
+                        edges_to_use,
+                        corner_positions,
+                        eval_corners,
+                        threshold,
                     );
-                    
+
                     // triangles
                     // Example: [7, 3, 2, 6, 7, 2, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1]
                     // Triangles: [p7, p3, p2], [p6, p7, p2]
                     let tris = &TRI_TABLE[state];
-                    
+
                     // adding triangle verts
                     for tri in tris {
                         if tri != &-1 {
-                            new_vert = Point3::new( //converting Vec to array
+                            new_vert = Point3::new(
+                                //converting Vec to array
                                 edge_points[&(*tri as usize)][2],
                                 edge_points[&(*tri as usize)][1],
-                                edge_points[&(*tri as usize)][0]
+                                edge_points[&(*tri as usize)][0],
                             );
                             target_mesh.vertices.push(new_vert);
                         }
@@ -160,65 +158,60 @@ impl VoxelGrid {
             target_mesh.triangle_from_verts(v, v + 1, v + 2);
             v += 3
         }
-        println!("\nCube count: {}",cube_count);
-        return target_mesh
+        println!("\nCube count: {}", cube_count);
+        return target_mesh;
     }
-
 
     pub fn export_voxel_data(&self, path: &str) -> Result<(), Box<dyn Error>> {
         // https://levelup.gitconnected.com/working-with-csv-data-in-rust-7258163252f8
         // Creates new `Writer` for `stdout`
         let mut writer = csv::Writer::from_path(path)?;
         let mut point;
-        for _x in 0..self.x_count - 1{
-            for _y in 0..self.y_count - 1{
-                for _z in 0..self.z_count - 1{
+        for _x in 0..self.x_count - 1 {
+            for _y in 0..self.y_count - 1 {
+                for _z in 0..self.z_count - 1 {
                     point = self.points[[_x, _y, _z]];
-                    writer.write_record(&[
-                        point.x.to_string(),
-                        point.y.to_string(),
-                        point.z.to_string(),
-                        self.values[[_x,_y,_z]].to_string()  
-                    ]).expect("Something went wrong.");
-                    
+                    writer
+                        .write_record(&[
+                            point.x.to_string(),
+                            point.y.to_string(),
+                            point.z.to_string(),
+                            self.values[[_x, _y, _z]].to_string(),
+                        ])
+                        .expect("Something went wrong.");
                 }
             }
         }
-    
+
         // A CSV writer maintains an internal buffer, so it's important
         // to flush the buffer when you're done.
         writer.flush()?;
-    
+
         Ok(())
     }
-
-
 }
-
-
 
 // ===========================================================
 
-pub fn remap(s : f64, range_in : [f64; 2], range_out : [f64; 2]) -> f64 {
-
+pub fn remap(s: f64, range_in: [f64; 2], range_out: [f64; 2]) -> f64 {
     range_out[0] + (s - range_in[0]) * (range_out[1] - range_out[0]) / (range_in[1] - range_in[0])
 }
 
-pub fn lerp_points(p0 : Point, p1 : Point, t : f64) -> Vec<f64> {
-
+pub fn lerp_points(p0: Point, p1: Point, t: f64) -> Vec<f64> {
     // may need to make this an array not a vector
-    let pf : Vec<f64> = p0.iter()
-                            .zip(p1.iter())
-                            .map(|p| lerp(*p.0, *p.1, t))
-                            .collect();
+    let pf: Vec<f64> = p0
+        .iter()
+        .zip(p1.iter())
+        .map(|p| lerp(*p.0, *p.1, t))
+        .collect();
     pf
 }
 
-pub fn find_lerp_factor(v0 : f64, v1 : f64, iso_val : f64) -> f64 {
+pub fn find_lerp_factor(v0: f64, v1: f64, iso_val: f64) -> f64 {
     (iso_val - v0) / (v1 - v0)
 }
 
-fn lerp(a : f64, b : f64, t : f64) -> f64 {
+fn lerp(a: f64, b: f64, t: f64) -> f64 {
     a + (b - a) * t
 }
 
@@ -235,61 +228,62 @@ pub fn get_state(eval_corners: &Vec<f64>, threshold: f64) -> usize {
     for s in states {
         final_state += s * i;
         i *= 2.0;
-    };
+    }
 
-    return final_state as usize
-
+    return final_state as usize;
 }
 
-pub fn eval_function(v : f64, threshold: f64) -> f64 {
-
+pub fn eval_function(v: f64, threshold: f64) -> f64 {
     if v <= threshold {
         1.0
     } else {
         0.0
     }
-
 }
 
-pub fn get_corner_values(voxels : &VoxelGrid, x : usize, y : usize, z : usize) -> Vec<f64> {
-
+pub fn get_corner_values(voxels: &VoxelGrid, x: usize, y: usize, z: usize) -> Vec<f64> {
     // could be consolidated/more idiomatic
-    let v0 = voxels.values[[x,     y,     z    ]];
-    let v1 = voxels.values[[x + 1, y,     z    ]];
-    let v2 = voxels.values[[x + 1, y + 1, z    ]];
-    let v3 = voxels.values[[x,     y + 1, z    ]];
-    let v4 = voxels.values[[x,     y,     z + 1]];
-    let v5 = voxels.values[[x + 1, y,     z + 1]];
+    let v0 = voxels.values[[x, y, z]];
+    let v1 = voxels.values[[x + 1, y, z]];
+    let v2 = voxels.values[[x + 1, y + 1, z]];
+    let v3 = voxels.values[[x, y + 1, z]];
+    let v4 = voxels.values[[x, y, z + 1]];
+    let v5 = voxels.values[[x + 1, y, z + 1]];
     let v6 = voxels.values[[x + 1, y + 1, z + 1]];
-    let v7 = voxels.values[[x,     y + 1, z + 1]];
+    let v7 = voxels.values[[x, y + 1, z + 1]];
 
-    let corner_vals = vec![v0,v1,v2,v3,v4,v5,v6,v7];
+    let corner_vals = vec![v0, v1, v2, v3, v4, v5, v6, v7];
 
     corner_vals
 }
 
-pub fn get_corner_positions(points : &Array3<Point>, x : usize, y : usize, z : usize) -> Vec<Point> {
-  
+pub fn get_corner_positions(points: &Array3<Point>, x: usize, y: usize, z: usize) -> Vec<Point> {
     // could be consolidated/more idiomatic
-    let p0 = points[[x,     y,     z        ]];
-    let p1 = points[[x + 1, y,     z        ]];
-    let p2 = points[[x + 1, y + 1, z        ]];
-    let p3 = points[[x,     y + 1, z        ]];
-    let p4 = points[[x,     y,     z + 1]];
-    let p5 = points[[x + 1, y,     z + 1]];
+    let p0 = points[[x, y, z]];
+    let p1 = points[[x + 1, y, z]];
+    let p2 = points[[x + 1, y + 1, z]];
+    let p3 = points[[x, y + 1, z]];
+    let p4 = points[[x, y, z + 1]];
+    let p5 = points[[x + 1, y, z + 1]];
     let p6 = points[[x + 1, y + 1, z + 1]];
-    let p7 = points[[x,     y + 1, z + 1]];
-    
-    let corner_points = vec![p0,p1,p2,p3,p4,p5,p6,p7];
-    
+    let p7 = points[[x, y + 1, z + 1]];
+
+    let corner_points = vec![p0, p1, p2, p3, p4, p5, p6, p7];
+
     corner_points
 }
-pub fn get_edge_midpoints(endpoint_indices : Vec<[i8; 2]>, edges_to_use : Vec<usize>, corner_positions : Vec<Point>, corner_values : Vec<f64>, threshold: f64) -> HashMap<usize, Vec<f64>> {
+pub fn get_edge_midpoints(
+    endpoint_indices: Vec<[i8; 2]>,
+    edges_to_use: Vec<usize>,
+    corner_positions: Vec<Point>,
+    corner_values: Vec<f64>,
+    threshold: f64,
+) -> HashMap<usize, Vec<f64>> {
     let (mut pair, mut edge);
     let (mut pi, mut pf, mut pe);
     let (mut vi, mut vf, mut t);
-    
-    let mut edge_points : HashMap<usize, Vec<f64>> = HashMap::new();
+
+    let mut edge_points: HashMap<usize, Vec<f64>> = HashMap::new();
 
     for i in 0..endpoint_indices.len() {
         pair = endpoint_indices[i];
@@ -306,18 +300,20 @@ pub fn get_edge_midpoints(endpoint_indices : Vec<[i8; 2]>, edges_to_use : Vec<us
             pe = lerp_points(pi, pf, t); // midpoint/interpolated point
             edge_points.insert(edge, pe);
         }
-    };
+    }
     edge_points
 }
 
-pub fn get_edge_endpoints(edges: &String, point_indices : &[[i8;2];12]) -> (Vec<[i8; 2]>, Vec<usize>) {
-        
+pub fn get_edge_endpoints(
+    edges: &String,
+    point_indices: &[[i8; 2]; 12],
+) -> (Vec<[i8; 2]>, Vec<usize>) {
     // returns the endpoints of edges from EdgeTable lookup
     let mut edge_points = Vec::new();
 
     // prepare for the check to see if each character = 1
     // (doesn't seem like the right way to do this)
-    
+
     // looping through binary string of yes/no for each edge
     let edges_to_use = edges_from_lookup(edges);
     for e in edges_to_use.clone() {
@@ -327,9 +323,8 @@ pub fn get_edge_endpoints(edges: &String, point_indices : &[[i8;2];12]) -> (Vec<
     (edge_points, edges_to_use)
 }
 
-
-pub fn edges_from_lookup(edges: &String) -> Vec<usize>{
-    let use_edge = "1".chars().next().unwrap();    // edgeTable[8] = 100000001100 -> Edges 2, 3, 11 intersected
+pub fn edges_from_lookup(edges: &String) -> Vec<usize> {
+    let use_edge = "1".chars().next().unwrap(); // edgeTable[8] = 100000001100 -> Edges 2, 3, 11 intersected
     let mut i = (edges.len() - 1) as i32;
     let mut edges_to_use = Vec::new();
 
@@ -351,15 +346,18 @@ pub fn edges_from_lookup(edges: &String) -> Vec<usize>{
 pub struct Mesh {
     // vertices : [[x1, y1, z1], [x2, y2, z2]...]
     pub vertices: Vec<Point>,
-    
+
     // tris : [[v0, v1, v2], [v3, v4, v5]]
-    pub tris: Vec<[usize; 3]> // new triangles
+    pub tris: Vec<[usize; 3]>, // new triangles
 }
 
 impl Mesh {
     //create a new empty Mesh
     pub fn new_empty() -> Self {
-        Self { vertices: Vec::new(), tris: Vec::new()}
+        Self {
+            vertices: Vec::new(),
+            tris: Vec::new(),
+        }
     }
 
     //create a triangle from Point indices
@@ -373,14 +371,13 @@ impl Mesh {
 
     //return triangle Point coordinates
     pub fn tri_coords(&self, tri: usize) -> Vec<Point> {
-
         let va = self.vertices[self.tris[tri][0]];
         let vb = self.vertices[self.tris[tri][1]];
         let vc = self.vertices[self.tris[tri][2]];
 
         vec![va, vb, vc]
     }
-    
+
     //return triangle normal
     pub fn tri_normal(&self, tri: usize) -> Vector3<f64> {
         //tri = starting Point index
@@ -389,9 +386,9 @@ impl Mesh {
         let vb = self.vertices[self.tris[tri][1]];
         let vc = self.vertices[self.tris[tri][2]];
 
-        let _a = Vector3::new(va[0],va[1],va[2]);
-        let _b = Vector3::new(vb[0],vb[1],vb[2]);
-        let _c = Vector3::new(vc[0],vc[1],vc[2]);
+        let _a = Vector3::new(va[0], va[1], va[2]);
+        let _b = Vector3::new(vb[0], vb[1], vb[2]);
+        let _c = Vector3::new(vc[0], vc[1], vc[2]);
 
         let v_a_b = _b - _a;
         let v_b_c = _c - _b;
@@ -401,7 +398,6 @@ impl Mesh {
         cross / cross.norm() //normal vector
     }
 }
-
 
 //writing mesh to STL:
 pub fn export_stl(path: &str, mesh: Mesh) {
@@ -435,7 +431,7 @@ pub fn export_stl(path: &str, mesh: Mesh) {
         writer
             .write_f32::<LittleEndian>((normal.z) as f32)
             .expect("Error");
-        
+
         //write each Point
         let vertices = mesh.tri_coords(tri);
         for point in vertices {
@@ -453,14 +449,12 @@ pub fn export_stl(path: &str, mesh: Mesh) {
         //write attribute byte count
         writer.write_u16::<LittleEndian>(0).expect("Error");
         tri += 1;
-
     }
     //write final stl
     fs::write(path, writer).expect("Something went wrong.");
 
     println!("Vertices: {:?}", mesh.vertices.len());
     println!("Triangles: {:?}\n", tri_count);
-
 }
 
 // =========================================================
@@ -468,51 +462,50 @@ pub fn export_stl(path: &str, mesh: Mesh) {
 // =========================================================
 
 // =============== EDGE TABLE ===============
-const EDGE_TABLE : [i32; 256] = [
-    0x0  , 0x109, 0x203, 0x30a, 0x406, 0x50f, 0x605, 0x70c,
-    0x80c, 0x905, 0xa0f, 0xb06, 0xc0a, 0xd03, 0xe09, 0xf00,
-    0x190, 0x99 , 0x393, 0x29a, 0x596, 0x49f, 0x795, 0x69c,
-    0x99c, 0x895, 0xb9f, 0xa96, 0xd9a, 0xc93, 0xf99, 0xe90,
-    0x230, 0x339, 0x33 , 0x13a, 0x636, 0x73f, 0x435, 0x53c,
-    0xa3c, 0xb35, 0x83f, 0x936, 0xe3a, 0xf33, 0xc39, 0xd30,
-    0x3a0, 0x2a9, 0x1a3, 0xaa , 0x7a6, 0x6af, 0x5a5, 0x4ac,
-    0xbac, 0xaa5, 0x9af, 0x8a6, 0xfaa, 0xea3, 0xda9, 0xca0,
-    0x460, 0x569, 0x663, 0x76a, 0x66 , 0x16f, 0x265, 0x36c,
-    0xc6c, 0xd65, 0xe6f, 0xf66, 0x86a, 0x963, 0xa69, 0xb60,
-    0x5f0, 0x4f9, 0x7f3, 0x6fa, 0x1f6, 0xff , 0x3f5, 0x2fc,
-    0xdfc, 0xcf5, 0xfff, 0xef6, 0x9fa, 0x8f3, 0xbf9, 0xaf0,
-    0x650, 0x759, 0x453, 0x55a, 0x256, 0x35f, 0x55 , 0x15c,
-    0xe5c, 0xf55, 0xc5f, 0xd56, 0xa5a, 0xb53, 0x859, 0x950,
-    0x7c0, 0x6c9, 0x5c3, 0x4ca, 0x3c6, 0x2cf, 0x1c5, 0xcc ,
-    0xfcc, 0xec5, 0xdcf, 0xcc6, 0xbca, 0xac3, 0x9c9, 0x8c0,
-    0x8c0, 0x9c9, 0xac3, 0xbca, 0xcc6, 0xdcf, 0xec5, 0xfcc,
-    0xcc , 0x1c5, 0x2cf, 0x3c6, 0x4ca, 0x5c3, 0x6c9, 0x7c0,
-    0x950, 0x859, 0xb53, 0xa5a, 0xd56, 0xc5f, 0xf55, 0xe5c,
-    0x15c, 0x55 , 0x35f, 0x256, 0x55a, 0x453, 0x759, 0x650,
-    0xaf0, 0xbf9, 0x8f3, 0x9fa, 0xef6, 0xfff, 0xcf5, 0xdfc,
-    0x2fc, 0x3f5, 0xff , 0x1f6, 0x6fa, 0x7f3, 0x4f9, 0x5f0,
-    0xb60, 0xa69, 0x963, 0x86a, 0xf66, 0xe6f, 0xd65, 0xc6c,
-    0x36c, 0x265, 0x16f, 0x66 , 0x76a, 0x663, 0x569, 0x460,
-    0xca0, 0xda9, 0xea3, 0xfaa, 0x8a6, 0x9af, 0xaa5, 0xbac,
-    0x4ac, 0x5a5, 0x6af, 0x7a6, 0xaa , 0x1a3, 0x2a9, 0x3a0,
-    0xd30, 0xc39, 0xf33, 0xe3a, 0x936, 0x83f, 0xb35, 0xa3c,
-    0x53c, 0x435, 0x73f, 0x636, 0x13a, 0x33 , 0x339, 0x230,
-    0xe90, 0xf99, 0xc93, 0xd9a, 0xa96, 0xb9f, 0x895, 0x99c,
-    0x69c, 0x795, 0x49f, 0x596, 0x29a, 0x393, 0x99 , 0x190,
-    0xf00, 0xe09, 0xd03, 0xc0a, 0xb06, 0xa0f, 0x905, 0x80c,
-    0x70c, 0x605, 0x50f, 0x406, 0x30a, 0x203, 0x109, 0x0   ];
-
-const CORNER_POINT_INDICES : [[i8; 2]; 12] = [
-    [0,1], [1,2], [2,3], [3,0],
-    [4,5], [5,6], [6,7], [7,4],
-    [0,4], [1,5], [2,6], [3,7]
+const EDGE_TABLE: [i32; 256] = [
+    0x0, 0x109, 0x203, 0x30a, 0x406, 0x50f, 0x605, 0x70c, 0x80c, 0x905, 0xa0f, 0xb06, 0xc0a, 0xd03,
+    0xe09, 0xf00, 0x190, 0x99, 0x393, 0x29a, 0x596, 0x49f, 0x795, 0x69c, 0x99c, 0x895, 0xb9f,
+    0xa96, 0xd9a, 0xc93, 0xf99, 0xe90, 0x230, 0x339, 0x33, 0x13a, 0x636, 0x73f, 0x435, 0x53c,
+    0xa3c, 0xb35, 0x83f, 0x936, 0xe3a, 0xf33, 0xc39, 0xd30, 0x3a0, 0x2a9, 0x1a3, 0xaa, 0x7a6,
+    0x6af, 0x5a5, 0x4ac, 0xbac, 0xaa5, 0x9af, 0x8a6, 0xfaa, 0xea3, 0xda9, 0xca0, 0x460, 0x569,
+    0x663, 0x76a, 0x66, 0x16f, 0x265, 0x36c, 0xc6c, 0xd65, 0xe6f, 0xf66, 0x86a, 0x963, 0xa69,
+    0xb60, 0x5f0, 0x4f9, 0x7f3, 0x6fa, 0x1f6, 0xff, 0x3f5, 0x2fc, 0xdfc, 0xcf5, 0xfff, 0xef6,
+    0x9fa, 0x8f3, 0xbf9, 0xaf0, 0x650, 0x759, 0x453, 0x55a, 0x256, 0x35f, 0x55, 0x15c, 0xe5c,
+    0xf55, 0xc5f, 0xd56, 0xa5a, 0xb53, 0x859, 0x950, 0x7c0, 0x6c9, 0x5c3, 0x4ca, 0x3c6, 0x2cf,
+    0x1c5, 0xcc, 0xfcc, 0xec5, 0xdcf, 0xcc6, 0xbca, 0xac3, 0x9c9, 0x8c0, 0x8c0, 0x9c9, 0xac3,
+    0xbca, 0xcc6, 0xdcf, 0xec5, 0xfcc, 0xcc, 0x1c5, 0x2cf, 0x3c6, 0x4ca, 0x5c3, 0x6c9, 0x7c0,
+    0x950, 0x859, 0xb53, 0xa5a, 0xd56, 0xc5f, 0xf55, 0xe5c, 0x15c, 0x55, 0x35f, 0x256, 0x55a,
+    0x453, 0x759, 0x650, 0xaf0, 0xbf9, 0x8f3, 0x9fa, 0xef6, 0xfff, 0xcf5, 0xdfc, 0x2fc, 0x3f5,
+    0xff, 0x1f6, 0x6fa, 0x7f3, 0x4f9, 0x5f0, 0xb60, 0xa69, 0x963, 0x86a, 0xf66, 0xe6f, 0xd65,
+    0xc6c, 0x36c, 0x265, 0x16f, 0x66, 0x76a, 0x663, 0x569, 0x460, 0xca0, 0xda9, 0xea3, 0xfaa,
+    0x8a6, 0x9af, 0xaa5, 0xbac, 0x4ac, 0x5a5, 0x6af, 0x7a6, 0xaa, 0x1a3, 0x2a9, 0x3a0, 0xd30,
+    0xc39, 0xf33, 0xe3a, 0x936, 0x83f, 0xb35, 0xa3c, 0x53c, 0x435, 0x73f, 0x636, 0x13a, 0x33,
+    0x339, 0x230, 0xe90, 0xf99, 0xc93, 0xd9a, 0xa96, 0xb9f, 0x895, 0x99c, 0x69c, 0x795, 0x49f,
+    0x596, 0x29a, 0x393, 0x99, 0x190, 0xf00, 0xe09, 0xd03, 0xc0a, 0xb06, 0xa0f, 0x905, 0x80c,
+    0x70c, 0x605, 0x50f, 0x406, 0x30a, 0x203, 0x109, 0x0,
 ];
 
+const CORNER_POINT_INDICES: [[i8; 2]; 12] = [
+    [0, 1],
+    [1, 2],
+    [2, 3],
+    [3, 0],
+    [4, 5],
+    [5, 6],
+    [6, 7],
+    [7, 4],
+    [0, 4],
+    [1, 5],
+    [2, 6],
+    [3, 7],
+];
 
 // =============== TRI TABLE ===============
 
-const TRI_TABLE : [[i8; 16]; 256] = [
-    [-1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1],
+const TRI_TABLE: [[i8; 16]; 256] = [
+    [
+        -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
+    ],
     [0, 8, 3, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1],
     [0, 1, 9, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1],
     [1, 8, 3, 9, 8, 1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1],
@@ -767,5 +760,7 @@ const TRI_TABLE : [[i8; 16]; 256] = [
     [1, 3, 8, 9, 1, 8, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1],
     [0, 9, 1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1],
     [0, 3, 8, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1],
-    [-1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1]
+    [
+        -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
+    ],
 ];
