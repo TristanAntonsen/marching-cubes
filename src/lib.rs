@@ -69,27 +69,6 @@ impl VoxelGrid {
         }
     }
 
-    pub fn write_voxel(&mut self, x: usize, y: usize, z: usize, value: f64) {
-        self.values[[x, y, z]] = value
-    }
-
-    pub fn eval(&mut self, f: &dyn Fn(Point) -> f64) {
-        let mut v;
-        let mut current_point;
-
-        for x in 0..self.x_count {
-            for y in 0..self.y_count {
-                for z in 0..self.z_count {
-                    current_point = self.points[[x, y, z]];
-
-                    v = f(current_point);
-
-                    self.write_voxel(x, y, z, v)
-                }
-            }
-        }
-    }
-
     pub fn march(&mut self, threshold: f64) -> Mesh {
         let mut target_mesh = Mesh::new_empty();
 

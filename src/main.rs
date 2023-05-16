@@ -1,5 +1,6 @@
 use marching_cubes::{VoxelGrid, Point, export_stl};
 use nalgebra::{point, distance};
+use ndarray::Array3;
 use std::time::Instant;
 
 fn main() {
@@ -7,14 +8,41 @@ fn main() {
 
     // bounding box of voxels to march
     let bounds = [
-        point![-100., -100., -100.],
+        point![-100.,-100., -100.],
         point![100., 100., 100.]
     ];
 
-    let mut voxels = VoxelGrid::new_from_aabb(bounds, 1.0);
+    // initializing the voxels
+    let mut voxels = VoxelGrid::new_from_aabb(bounds, 0.5);
+
+
+    // creating scalar data
+    let mut data = Array3::<f64>::zeros((voxels.x_count, voxels.y_count, voxels.z_count));
     
-    // evaluating the voxel points with the sdf function
-    voxels.eval(&sdf);
+    for x in 0..voxels.x_count {
+        for y in 0..voxels.y_count {
+            for z in 0..voxels.z_count {
+                let current_point = voxels.points[[x, y, z]];
+
+                // Using Signed Distance Fields to create scalar data
+
+                // Gyroid sphere
+                let s = _sphere(current_point, point![0., 0., 0.], 50.0);
+                let g = _gyroid(current_point, point![0., 0., 0.], 90.0, 0.1, 0.5);
+                let v = op_intersection(s, g, 4.0);
+
+                // //// Blended spheres
+                // let s1 = _sphere(p, point![-25., -25., -25.], 50.0);
+                // let s2 = _sphere(p, point![25., 25., 25.], 50.0);
+                // let v = op_union(s1, s2, 25.0)
+
+                data[[x, y, z]] = v;
+            }
+        }
+    }
+    
+    // setting the voxel data
+    voxels.values = data;
 
     // marching the volume/voxel data
     let mesh = voxels.march(0.0);
@@ -24,7 +52,6 @@ fn main() {
 
     // optional exporting to .csv
     // voxels.export_voxel_data("voxels.csv").expect("Could not write .csv");
-
 
     let elapsed = now.elapsed().as_secs_f64();
     let s = elapsed % 60.;
@@ -38,19 +65,6 @@ fn main() {
 // ===========================================================
 // mostly thanks to https://iquilezles.org/
 
-fn sdf(p : Point) -> f64 {
-    // Gyroid sphere
-    // let s = _sphere(p, point![0., 0., 0.], 90.0);
-    let g = _gyroid(p, point![0., 0., 0.], 90.0, 0.1, 0.5);
-    // op_intersection(s, g, 4.0)
-    g
-    // //// Blended spheres
-    // let s1 = _sphere(p, point![-25., -25., -25.], 50.0);
-    // let s2 = _sphere(p, point![25., 25., 25.], 50.0);
-
-    // op_union(s1, s2, 25.0)
-    
-}
 
 fn _sphere(p : Point, center: Point, r : f64) -> f64 {
     distance(&p, &center) - r
