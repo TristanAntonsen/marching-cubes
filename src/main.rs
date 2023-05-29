@@ -1,21 +1,17 @@
-use marching_cubes::{VoxelGrid, Point, export_stl};
-use nalgebra::{point, distance};
+use marching_cubes::{VoxelGrid, Point, export_stl, center_box};
+use nalgebra::{point, distance, vector};
 use ndarray::Array3;
 use std::time::Instant;
-use noise::{NoiseFn, Perlin};
+use noise::Perlin;
 
 fn main() {
     let now = Instant::now();
 
     // bounding box of voxels to march
-    let bounds = [
-        point![-50.,-50., -50.],
-        point![50., 50., 50.]
-    ];
+    let bounds = center_box(point![0., 0., 0.], vector![200., 200., 200.]);
 
     // initializing the voxels
     let mut voxels = VoxelGrid::new_from_aabb(bounds, 0.5);
-
 
     // creating scalar data
     let mut data = Array3::<f64>::zeros((voxels.x_count, voxels.y_count, voxels.z_count));
@@ -29,19 +25,19 @@ fn main() {
                 // Using Signed Distance Fields to create scalar data
 
                 // Gyroid sphere
-                let s = _sphere(p, point![0., 0., 0.], 50.0);
+                // let s = _sphere(p, point![0., 0., 0.], 50.0);
                 // let g = _gyroid(p, point![0., 0., 0.], 90.0, 0.1, 0.5);
                 // let v = op_intersection(s, g, 4.0);
 
                 // Blended spheres
-                // let s1 = _sphere(p, point![-25., -25., -25.], 50.0);
-                // let s2 = _sphere(p, point![25., 25., 25.], 50.0);
-                // let v = op_union(s1, s2, 25.0)
+                let s1 = _sphere(p, point![0., -25., -25.], 50.0);
+                let s2 = _sphere(p, point![0., 25., 25.], 50.0);
+                let v = op_union(s1, s2, 15.0);
 
                 // Perlin noise
-                let ps = 0.02 * p; // setting noise frequency
-                let per = _perlin.get([ps.x, ps.y, ps.z]);
-                let v = op_intersection(per, s, 2.0);
+                // let ps = 0.02 * p; // setting noise frequency
+                // let per = _perlin.get([ps.x, ps.y, ps.z]);
+                // let v = op_intersection(per, s, 2.0);
 
                 data[[x, y, z]] = v;
             }

@@ -191,6 +191,21 @@ fn lerp(a: f64, b: f64, t: f64) -> f64 {
 
 // ===========================================================
 
+pub fn center_box(center: Point, dims: Vector) -> [Point; 2] {
+
+    let min_point = point![
+        center.x - dims.x / 2.0,
+        center.y - dims.y / 2.0,
+        center.z - dims.z / 2.0
+    ];
+    let max_point = point![
+        center.x + dims.x / 2.0,
+        center.y + dims.y / 2.0,
+        center.z + dims.z / 2.0
+    ];
+    [min_point, max_point]
+}
+
 pub fn get_state(eval_corners: &Vec<f64>, threshold: f64) -> usize {
     // assumes eval_corners.len() == 8; Need to check for this
     // 0 if <= threshold, 1 if > threshold
