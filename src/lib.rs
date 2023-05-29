@@ -72,11 +72,6 @@ impl VoxelGrid {
     pub fn march(&mut self, threshold: f64) -> Mesh {
         let mut target_mesh = Mesh::new_empty();
 
-        let mut state;
-        let mut endpoint_indices;
-        let mut edges_to_use;
-        let mut new_vert;
-        let mut eval_corners;
         let mut cube_count = 0;
 
         let edge_table = &EDGE_TABLE.map(|e| format!("{:b}", e));
@@ -87,10 +82,10 @@ impl VoxelGrid {
                     // corner positions
                     let corner_positions = get_corner_positions(&self.points, x, y, z);
                     // voxel values (evaluated sdf)
-                    eval_corners = get_corner_values(&self, x, y, z);
+                    let eval_corners = get_corner_values(&self, x, y, z);
 
                     // Calculating state
-                    state = get_state(&eval_corners, threshold);
+                    let state = get_state(&eval_corners, threshold);
 
                     // edges
                     // Example: 11001100
@@ -98,7 +93,7 @@ impl VoxelGrid {
                     let edges_bin_string = &edge_table[state];
 
                     // Indices of edge endpoints (List of pairs)
-                    (endpoint_indices, edges_to_use) =
+                    let (endpoint_indices, edges_to_use) =
                         get_edge_endpoints(edges_bin_string, &CORNER_POINT_INDICES);
 
                     // finding midpoints of edges
@@ -118,7 +113,7 @@ impl VoxelGrid {
                     // adding triangle verts
                     for tri in tris {
                         if tri != &-1 {
-                            new_vert = Point3::new(
+                            let new_vert = Point3::new(
                                 //converting Vec to array
                                 edge_points[&(*tri as usize)][2],
                                 edge_points[&(*tri as usize)][1],
