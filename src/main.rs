@@ -1,4 +1,4 @@
-use marching_cubes::{VoxelGrid, Point, export_stl, center_box};
+use marching_cubes::{center_box, export_stl, march_voxels, Point, VoxelGrid};
 use nalgebra::{point, distance, vector};
 use ndarray::Array3;
 use std::time::Instant;
@@ -8,7 +8,7 @@ fn main() {
     let now = Instant::now();
 
     // bounding box of voxels to march
-    let bounds = center_box(point![0., 0., 0.], vector![200., 200., 200.]);
+    let bounds = center_box(point![0., 0., 0.], vector![100., 100., 100.]);
 
     // initializing the voxels
     let mut voxels = VoxelGrid::new_from_aabb(bounds, 0.5);
@@ -48,7 +48,7 @@ fn main() {
     voxels.values = data;
 
     // marching the volume/voxel data
-    let mesh = voxels.march(0.0);
+    let mesh = march_voxels(&mut voxels, 0.0);
     
     // exporting to stl
     export_stl("marched.stl", mesh);
