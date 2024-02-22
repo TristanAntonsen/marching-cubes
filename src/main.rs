@@ -1,54 +1,9 @@
-use marching_cubes::{center_box, export_stl, marching_cubes, Point, VoxelGrid};
-use nalgebra::{distance, point, vector};
-use ndarray::Array3;
-use noise::Perlin;
+use marching_cubes::{export_stl, marching_cubes, Point};
+use nalgebra::{distance, point};
 use std::time::Instant;
 
 fn main() {
     let now = Instant::now();
-
-    // bounding box of voxels to march
-    let bounds = center_box(point![0., 0., 0.], vector![100., 100., 100.]);
-
-    // initializing the voxels
-    let mut voxels = VoxelGrid::new_from_aabb(bounds, 0.5);
-
-    // creating scalar data
-    let mut data = Array3::<f64>::zeros((voxels.x_count, voxels.y_count, voxels.z_count));
-    let _perlin = Perlin::new(1);
-
-    for x in 0..voxels.x_count {
-        for y in 0..voxels.y_count {
-            for z in 0..voxels.z_count {
-                let p = voxels.points[[x, y, z]];
-
-                // Using Signed Distance Fields to create scalar data
-
-                // Gyroid sphere
-                // let s = _sphere(p, point![0., 0., 0.], 50.0);
-                // let g = _gyroid(p, point![0., 0., 0.], 90.0, 0.1, 0.5);
-                // let v = op_intersection(s, g, 4.0);
-
-                // Blended spheres
-                let s1 = _sphere(p, point![0., -25., -25.], 50.0);
-                let s2 = _sphere(p, point![0., 25., 25.], 50.0);
-                let v = op_union(s1, s2, 15.0);
-
-                // Perlin noise
-                // let ps = 0.02 * p; // setting noise frequency
-                // let per = _perlin.get([ps.x, ps.y, ps.z]);
-                // let v = op_intersection(per, s, 2.0);
-
-                data[[x, y, z]] = v;
-            }
-        }
-    }
-
-    // setting the voxel data
-    voxels.values = data;
-
-    // marching the volume/voxel data
-    // let mesh = voxels.marching_cubes(0.0);
 
     // eval function version
     let mesh = marching_cubes(
@@ -64,9 +19,6 @@ fn main() {
     // exporting to stl
     export_stl("marched.stl", mesh);
 
-    // optional exporting to .csv
-    // voxels.export_voxel_data("voxels.csv").expect("Could not write .csv");
-
     let elapsed = now.elapsed().as_secs_f64();
     let s = elapsed % 60.;
     let min = (elapsed / 60.).floor() as u8;
@@ -78,6 +30,7 @@ fn main() {
 // ===========================================================
 // mostly thanks to https://iquilezles.org/
 
+// The function that gets marched
 fn map(p: Point) -> f64 {
     let s1 = _sphere(p, point![0., -25., -25.], 50.0);
     let s2 = _sphere(p, point![0., 25., 25.], 50.0);

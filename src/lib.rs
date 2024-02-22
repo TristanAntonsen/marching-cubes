@@ -2,7 +2,7 @@ use byteorder::{LittleEndian, WriteBytesExt};
 use csv;
 use nalgebra::{point, Point3, Vector3};
 use ndarray::Array3;
-use std::{collections::HashMap, error::Error, fs, io::Write, ops::Add};
+use std::{collections::HashMap, error::Error, fs, io::Write};
 
 // ==========================================================
 // ======================= Data types =======================
@@ -25,7 +25,7 @@ pub struct VoxelGrid {
     pub aabb: [Point3<f64>; 2],
     pub points: Array3<Point>, // xyz point coordinates
 }
-
+// Original version -- slower
 impl VoxelGrid {
     pub fn new_from_aabb(aabb: [Point3<f64>; 2], size: f64) -> Self {
         let x_count = ((aabb[1].x.floor() - aabb[0].x.floor()) / size) as usize;
@@ -203,15 +203,6 @@ impl VoxelGrid {
 // ===========================================================
 // ======================= Marching cubes ====================
 // ===========================================================
-
-fn fun_test(value: i32, f: &dyn Fn(i32) -> i32) -> i32 {
-    println!("{}", f(value));
-    value
-}
-
-fn times2(value: i32) -> i32 {
-    2 * value
-}
 
 // Marching cubes algorithm
 pub fn marching_cubes(
