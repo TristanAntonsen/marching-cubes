@@ -114,9 +114,9 @@ pub fn march_voxels(voxels: &mut VoxelGrid, threshold: f64) -> Mesh {
         for y in 0..voxels.y_count - 1 {
             for z in 0..voxels.z_count - 1 {
                 // corner positions
-                let corner_positions = get_corner_positions(&voxels.points, x, y, z);
+                let corner_positions = voxel_corner_positions(&voxels.points, x, y, z);
                 // voxel values (evaluated sdf)
-                let eval_corners = get_corner_values(&voxels, x, y, z);
+                let eval_corners = voxel_corner_values(&voxels, x, y, z);
 
                 // Calculating state
                 let state = get_state(&eval_corners, threshold);
@@ -245,8 +245,8 @@ pub fn eval_function(v: f64, threshold: f64) -> f64 {
     }
 }
 
-// Get the values at the 8 vertices of the cube
-pub fn get_corner_values(voxels: &VoxelGrid, x: usize, y: usize, z: usize) -> Vec<f64> {
+// Get the values at the 8 vertices of the cube (voxel version)
+pub fn voxel_corner_values(voxels: &VoxelGrid, x: usize, y: usize, z: usize) -> Vec<f64> {
     // could be consolidated/more idiomatic
     let v0 = voxels.values[[x, y, z]];
     let v1 = voxels.values[[x + 1, y, z]];
@@ -262,8 +262,8 @@ pub fn get_corner_values(voxels: &VoxelGrid, x: usize, y: usize, z: usize) -> Ve
     corner_vals
 }
 
-// Get the point coordinates at the 8 vertices of the cube
-pub fn get_corner_positions(points: &Array3<Point>, x: usize, y: usize, z: usize) -> Vec<Point> {
+// Get the point coordinates at the 8 vertices of the cube (voxel version)
+pub fn voxel_corner_positions(points: &Array3<Point>, x: usize, y: usize, z: usize) -> Vec<Point> {
     // could be consolidated/more idiomatic
     let p0 = points[[x, y, z]];
     let p1 = points[[x + 1, y, z]];
