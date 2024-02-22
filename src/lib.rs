@@ -2,7 +2,7 @@ use byteorder::{LittleEndian, WriteBytesExt};
 use csv;
 use nalgebra::{point, Point3, Vector3};
 use ndarray::Array3;
-use std::{collections::HashMap, error::Error, fs, io::Write};
+use std::{collections::HashMap, error::Error, fs, io::Write, ops::Add};
 
 // ==========================================================
 // ======================= Data types =======================
@@ -85,7 +85,7 @@ impl VoxelGrid {
 
         corner_points
     }
-    
+
     // Get the values at the 8 vertices of the cube (voxel version)
     pub fn get_corner_values(&self, x: usize, y: usize, z: usize) -> Vec<f64> {
         // could be consolidated/more idiomatic
@@ -117,7 +117,7 @@ impl VoxelGrid {
                     // corner positions
                     let corner_positions = self.get_corner_positions(x, y, z);
                     // voxel values (evaluated sdf)
-                    let eval_corners = self.get_corner_values( x, y, z);
+                    let eval_corners = self.get_corner_values(x, y, z);
 
                     // Calculating state
                     let state = get_state(&eval_corners, threshold);
@@ -204,39 +204,132 @@ impl VoxelGrid {
 // ======================= Marching cubes ====================
 // ===========================================================
 
-// ===========================================================
-// ====================== Interpolation ======================
-// ===========================================================
-
-// linearly map a number from one range to another
-pub fn remap(s: f64, range_in: [f64; 2], range_out: [f64; 2]) -> f64 {
-    range_out[0] + (s - range_in[0]) * (range_out[1] - range_out[0]) / (range_in[1] - range_in[0])
+fn fun_test(value: i32, f: &dyn Fn(i32) -> i32) -> i32 {
+    println!("{}", f(value));
+    value
 }
 
-// Return the interpolation factor t corresponding to iso_val
-pub fn find_t(v0: f64, v1: f64, iso_val: f64) -> f64 {
-    (iso_val - v0) / (v1 - v0)
+fn times2(value: i32) -> i32 {
+    2 * value
 }
 
-// Linear interpolation
-fn lerp(a: f64, b: f64, t: f64) -> f64 {
-    a + (b - a) * t
-}
+// Marching cubes algorithm
+pub fn marching_cubes(
+    eval_function: &dyn Fn(Point) -> f64,
+    min_point: Point,
+    x_count: usize,
+    y_count: usize,
+    z_count: usize,
+    threshold: f64,
+    scale: f64,
+) -> Mesh {
+    let mut target_mesh = Mesh::new_empty();
 
-// Linearly interpolate between two points by factor t
-pub fn interpolate_points(p0: Point, p1: Point, t: f64) -> Vec<f64> {
-    // may need to make this an array not a vector
-    let pf: Vec<f64> = p0
-        .iter()
-        .zip(p1.iter())
-        .map(|p| lerp(*p.0, *p.1, t))
-        .collect();
-    pf
+    let mut cube_count = 0;
+
+    let edge_table = &EDGE_TABLE.map(|e| format!("{:b}", e));
+
+    for x in 0..x_count - 1 {
+        for y in 0..y_count - 1 {
+            for z in 0..z_count - 1 {
+                // corner positions
+                let corner_positions = get_corner_positions(min_point, x, y, z, scale);
+
+                // voxel values (evaluated sdf)
+                let eval_corners = corner_positions.iter().map(|p| eval_function(*p)).collect();
+
+                // Calculating state
+                let state = get_state(&eval_corners, threshold);
+
+                // edges
+                // Example: 11001100
+                // Edges 2, 3, 6, 7 are intersected
+                let edges_bin_string = &edge_table[state];
+
+                // Indices of edge endpoints (List of pairs)
+                let (endpoint_indices, edges_to_use) =
+                    get_edge_endpoints(edges_bin_string, &CORNER_POINT_INDICES);
+
+                // finding midpoints of edges
+                let edge_points = get_edge_midpoints(
+                    endpoint_indices,
+                    edges_to_use,
+                    corner_positions,
+                    eval_corners,
+                    threshold,
+                );
+
+                // triangles
+                // Example: [7, 3, 2, 6, 7, 2, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1]
+                // Triangles: [p7, p3, p2], [p6, p7, p2]
+                let tris = &TRI_TABLE[state];
+
+                // adding triangle verts
+                for tri in tris {
+                    if tri != &-1 {
+                        let new_vert = Point3::new(
+                            //converting Vec to array
+                            edge_points[&(*tri as usize)][2],
+                            edge_points[&(*tri as usize)][1],
+                            edge_points[&(*tri as usize)][0],
+                        );
+                        target_mesh.vertices.push(new_vert);
+                    }
+                }
+                cube_count += 1
+            }
+        }
+    }
+    // creating triangles
+    let mut v = 0;
+    while v < target_mesh.vertices.len() {
+        target_mesh.triangle_from_verts(v, v + 1, v + 2);
+        v += 3
+    }
+    println!("\nCube count: {}", cube_count);
+    return target_mesh;
 }
 
 // ===========================================================
 // ============== Marching cubes helper functions ============
 // ===========================================================
+
+// Get the point coordinates at the 8 vertices of the cube (voxel version)
+pub fn get_corner_positions(
+    min_point: Point,
+    x: usize,
+    y: usize,
+    z: usize,
+    scale: f64,
+) -> Vec<Point> {
+    let xf = scale * x as f64;
+    let yf = scale * y as f64;
+    let zf = scale * z as f64;
+
+    // could be consolidated/more idiomatic
+    let p0 = point![xf, yf, zf];
+    let p1 = point![xf + scale, yf, zf];
+    let p2 = point![xf + scale, yf + scale, zf];
+    let p3 = point![xf, yf + scale, zf];
+    let p4 = point![xf, yf, zf + scale];
+    let p5 = point![xf + scale, yf, zf + scale];
+    let p6 = point![xf + scale, yf + scale, zf + scale];
+    let p7 = point![xf, yf + scale, zf + scale];
+
+    let mut corner_points = vec![p0, p1, p2, p3, p4, p5, p6, p7];
+
+    // Translating points to bounding box space
+    corner_points = corner_points
+        .iter()
+        .map(|p| add_points(*p, min_point))
+        .collect();
+
+    corner_points
+}
+
+fn add_points(p1: Point, p2: Point) -> Point {
+    point![p1.x + p2.x, p1.y + p2.y, p1.z + p2.z]
+}
 
 // Return min and max bounding box points from a center point and box dimensions
 pub fn center_box(center: Point, dims: Vector) -> [Point; 2] {
@@ -258,7 +351,7 @@ pub fn get_state(eval_corners: &Vec<f64>, threshold: f64) -> usize {
     // assumes eval_corners.len() == 8; Need to check for this
     // 0 if <= threshold, 1 if > threshold
 
-    let states = eval_corners.iter().map(|x| eval_function(*x, threshold));
+    let states = eval_corners.iter().map(|x| state_function(*x, threshold));
 
     let mut i = 1.0;
     let mut final_state = 0.0;
@@ -271,7 +364,7 @@ pub fn get_state(eval_corners: &Vec<f64>, threshold: f64) -> usize {
 }
 
 // Function to determine state of each corner
-pub fn eval_function(v: f64, threshold: f64) -> f64 {
+pub fn state_function(v: f64, threshold: f64) -> f64 {
     if v <= threshold {
         1.0
     } else {
@@ -346,6 +439,36 @@ pub fn edges_from_lookup(edges: &String) -> Vec<usize> {
     }
 
     edges_to_use
+}
+
+// ===========================================================
+// ====================== Interpolation ======================
+// ===========================================================
+
+// linearly map a number from one range to another
+pub fn remap(s: f64, range_in: [f64; 2], range_out: [f64; 2]) -> f64 {
+    range_out[0] + (s - range_in[0]) * (range_out[1] - range_out[0]) / (range_in[1] - range_in[0])
+}
+
+// Return the interpolation factor t corresponding to iso_val
+pub fn find_t(v0: f64, v1: f64, iso_val: f64) -> f64 {
+    (iso_val - v0) / (v1 - v0)
+}
+
+// Linear interpolation
+fn lerp(a: f64, b: f64, t: f64) -> f64 {
+    a + (b - a) * t
+}
+
+// Linearly interpolate between two points by factor t
+pub fn interpolate_points(p0: Point, p1: Point, t: f64) -> Vec<f64> {
+    // may need to make this an array not a vector
+    let pf: Vec<f64> = p0
+        .iter()
+        .zip(p1.iter())
+        .map(|p| lerp(*p.0, *p.1, t))
+        .collect();
+    pf
 }
 
 // ==========================================================

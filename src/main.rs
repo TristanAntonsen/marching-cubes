@@ -1,8 +1,8 @@
-use marching_cubes::{center_box, export_stl, march_voxels, Point, VoxelGrid};
-use nalgebra::{point, distance, vector};
+use marching_cubes::{center_box, export_stl, marching_cubes, Point, VoxelGrid};
+use nalgebra::{distance, point, vector};
 use ndarray::Array3;
-use std::time::Instant;
 use noise::Perlin;
+use std::time::Instant;
 
 fn main() {
     let now = Instant::now();
@@ -43,13 +43,24 @@ fn main() {
             }
         }
     }
-    
+
     // setting the voxel data
     voxels.values = data;
 
     // marching the volume/voxel data
-    let mesh = march_voxels(&mut voxels, 0.0);
-    
+    // let mesh = voxels.marching_cubes(0.0);
+
+    // eval function version
+    let mesh = marching_cubes(
+        &map,
+        point![-100., -100., -100.],
+        200,
+        200,
+        200,
+        0.,
+        1.,
+    );
+
     // exporting to stl
     export_stl("marched.stl", mesh);
 
@@ -60,7 +71,6 @@ fn main() {
     let s = elapsed % 60.;
     let min = (elapsed / 60.).floor() as u8;
     println!("\n{} min {:.2?} seconds", min, s);
-
 }
 
 // ===========================================================
@@ -68,8 +78,13 @@ fn main() {
 // ===========================================================
 // mostly thanks to https://iquilezles.org/
 
+fn map(p: Point) -> f64 {
+    let s1 = _sphere(p, point![0., -25., -25.], 50.0);
+    let s2 = _sphere(p, point![0., 25., 25.], 50.0);
+    op_union(s1, s2, 15.0)
+}
 
-fn _sphere(p : Point, center: Point, r : f64) -> f64 {
+fn _sphere(p: Point, center: Point, r: f64) -> f64 {
     distance(&p, &center) - r
 }
 
