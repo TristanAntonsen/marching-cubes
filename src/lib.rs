@@ -65,10 +65,11 @@ impl VoxelGrid {
             z_count: z_count,
             size: size,
             aabb: aabb,
-            points: points
+            points: points,
         }
     }
 
+    // Marching cubes algorithm
     pub fn march(&mut self, threshold: f64) -> Mesh {
         let mut target_mesh = Mesh::new_empty();
 
@@ -166,12 +167,26 @@ impl VoxelGrid {
 }
 
 // ===========================================================
+// ====================== Interpolation ======================
+// ===========================================================
 
+// linearly map a number from one range to another
 pub fn remap(s: f64, range_in: [f64; 2], range_out: [f64; 2]) -> f64 {
     range_out[0] + (s - range_in[0]) * (range_out[1] - range_out[0]) / (range_in[1] - range_in[0])
 }
 
-pub fn lerp_points(p0: Point, p1: Point, t: f64) -> Vec<f64> {
+// Return the interpolation factor t corresponding to iso_val
+pub fn find_t(v0: f64, v1: f64, iso_val: f64) -> f64 {
+    (iso_val - v0) / (v1 - v0)
+}
+
+// Linear interpolation
+fn lerp(a: f64, b: f64, t: f64) -> f64 {
+    a + (b - a) * t
+}
+
+// Linearly interpolate between two points by factor t
+pub fn interpolate_points(p0: Point, p1: Point, t: f64) -> Vec<f64> {
     // may need to make this an array not a vector
     let pf: Vec<f64> = p0
         .iter()
@@ -181,18 +196,12 @@ pub fn lerp_points(p0: Point, p1: Point, t: f64) -> Vec<f64> {
     pf
 }
 
-pub fn find_lerp_factor(v0: f64, v1: f64, iso_val: f64) -> f64 {
-    (iso_val - v0) / (v1 - v0)
-}
-
-fn lerp(a: f64, b: f64, t: f64) -> f64 {
-    a + (b - a) * t
-}
-
+// ===========================================================
+// ============== Marching cubes helper functions ============
 // ===========================================================
 
+// Return min and max bounding box points from a center point and box dimensions
 pub fn center_box(center: Point, dims: Vector) -> [Point; 2] {
-
     let min_point = point![
         center.x - dims.x / 2.0,
         center.y - dims.y / 2.0,
@@ -206,6 +215,7 @@ pub fn center_box(center: Point, dims: Vector) -> [Point; 2] {
     [min_point, max_point]
 }
 
+// get the state of the 8 vertices of the cube
 pub fn get_state(eval_corners: &Vec<f64>, threshold: f64) -> usize {
     // assumes eval_corners.len() == 8; Need to check for this
     // 0 if <= threshold, 1 if > threshold
@@ -222,6 +232,7 @@ pub fn get_state(eval_corners: &Vec<f64>, threshold: f64) -> usize {
     return final_state as usize;
 }
 
+// Function to determine state of each corner
 pub fn eval_function(v: f64, threshold: f64) -> f64 {
     if v <= threshold {
         1.0
@@ -230,6 +241,7 @@ pub fn eval_function(v: f64, threshold: f64) -> f64 {
     }
 }
 
+// Get the values at the 8 vertices of the cube
 pub fn get_corner_values(voxels: &VoxelGrid, x: usize, y: usize, z: usize) -> Vec<f64> {
     // could be consolidated/more idiomatic
     let v0 = voxels.values[[x, y, z]];
@@ -246,6 +258,7 @@ pub fn get_corner_values(voxels: &VoxelGrid, x: usize, y: usize, z: usize) -> Ve
     corner_vals
 }
 
+// Get the point coordinates at the 8 vertices of the cube
 pub fn get_corner_positions(points: &Array3<Point>, x: usize, y: usize, z: usize) -> Vec<Point> {
     // could be consolidated/more idiomatic
     let p0 = points[[x, y, z]];
@@ -261,6 +274,8 @@ pub fn get_corner_positions(points: &Array3<Point>, x: usize, y: usize, z: usize
 
     corner_points
 }
+
+// Get the midpoints of the edges of the cube
 pub fn get_edge_midpoints(
     endpoint_indices: Vec<[i8; 2]>,
     edges_to_use: Vec<usize>,
@@ -284,15 +299,16 @@ pub fn get_edge_midpoints(
             pi = corner_positions[pair[0] as usize];
             pf = corner_positions[pair[1] as usize];
 
-            t = find_lerp_factor(vi, vf, threshold);
+            t = find_t(vi, vf, threshold);
 
-            pe = lerp_points(pi, pf, t); // midpoint/interpolated point
+            pe = interpolate_points(pi, pf, t); // midpoint/interpolated point
             edge_points.insert(edge, pe);
         }
     }
     edge_points
 }
 
+// Return pairs of endpoints per edge of the cube
 pub fn get_edge_endpoints(
     edges: &String,
     point_indices: &[[i8; 2]; 12],
@@ -312,6 +328,7 @@ pub fn get_edge_endpoints(
     (edge_points, edges_to_use)
 }
 
+// Return the edges that contain triangle vertices
 pub fn edges_from_lookup(edges: &String) -> Vec<usize> {
     let use_edge = "1".chars().next().unwrap(); // edgeTable[8] = 100000001100 -> Edges 2, 3, 11 intersected
     let mut i = (edges.len() - 1) as i32;
@@ -447,7 +464,7 @@ pub fn export_stl(path: &str, mesh: Mesh) {
 }
 
 // =========================================================
-// ========================= TABLES =========================
+// ========================= TABLES ========================
 // =========================================================
 
 // =============== EDGE TABLE ===============
