@@ -13,6 +13,7 @@ fn main() {
         let s1 = sdf::sphere(p, point![0., -25., -25.], 50.0);
         let s2 = sdf::sphere(p, point![0., 25., 25.], 50.0);
         sdf::boolean_union(s1, s2, 15.0)
+        // sdf::gyroid(p, point![0., 0., 0.], 90., 0.1, 0.5)
     }
 
     // eval function version

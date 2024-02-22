@@ -5,6 +5,7 @@ use std::{collections::HashMap, fs, io::Write};
 // ==========================================================
 // ======================= Data types =======================
 // ==========================================================
+
 pub type Point = Point3<f64>;
 pub type Vector = Vector3<f64>;
 pub const ORIGIN: Point3<f64> = Point3::new(0.0, 0.0, 0.0);
@@ -39,7 +40,7 @@ pub fn marching_cubes(
                 let eval_corners = corner_positions.iter().map(|p| eval_function(*p)).collect();
 
                 // Calculating state
-                let state = get_state(&eval_corners, threshold);
+                let state = get_state(&eval_corners, threshold).expect("Could not get state");
 
                 // edges
                 // Example: 11001100
@@ -83,7 +84,9 @@ pub fn marching_cubes(
     // creating triangles
     let mut v = 0;
     while v < target_mesh.vertices.len() {
-        target_mesh.triangle_from_verts(v, v + 1, v + 2);
+        target_mesh
+            .triangle_from_verts(v, v + 1, v + 2)
+            .expect("Could not create triangle.");
         v += 3
     }
     println!("\nCube count: {}", cube_count);
@@ -147,10 +150,14 @@ pub fn center_box(center: Point, dims: Vector) -> [Point; 2] {
 }
 
 // get the state of the 8 vertices of the cube
-pub fn get_state(eval_corners: &Vec<f64>, threshold: f64) -> usize {
-    // assumes eval_corners.len() == 8; Need to check for this
-    // 0 if <= threshold, 1 if > threshold
+pub fn get_state(eval_corners: &Vec<f64>, threshold: f64) -> Result<usize, MarchingCubesError> {
 
+    // Make sure eval_corners contains exactly 8 values
+    if eval_corners.len() != 8 {
+        return Err(MarchingCubesError)
+    }
+
+    // 0 if <= threshold, 1 if > threshold
     let states = eval_corners.iter().map(|x| state_function(*x, threshold));
 
     let mut i = 1.0;
@@ -160,7 +167,7 @@ pub fn get_state(eval_corners: &Vec<f64>, threshold: f64) -> usize {
         i *= 2.0;
     }
 
-    return final_state as usize;
+    return Ok(final_state as usize);
 }
 
 // Function to determine state of each corner
@@ -284,6 +291,9 @@ pub struct Mesh {
     pub tris: Vec<[usize; 3]>, // new triangles
 }
 
+#[derive(Debug)]
+pub struct MarchingCubesError;
+
 impl Mesh {
     //create a new empty Mesh
     pub fn new_empty() -> Self {
@@ -294,12 +304,16 @@ impl Mesh {
     }
 
     //create a triangle from Point indices
-    pub fn triangle_from_verts(&mut self, x: usize, y: usize, z: usize) {
-        // x/y/z are indices
-        // create a triangle from existing vertices (assumes already has vertices)
-        let tri = [x, y, z];
+    pub fn triangle_from_verts(&mut self, x: usize, y: usize, z: usize) -> Result<(), MarchingCubesError> {
+        // Need to make sure mesh isn't empty
+        if self.vertices.len() <= x.max(y.max(z)) {
+            return Err(MarchingCubesError);
+        }
 
-        self.tris.push(tri)
+        // x/y/z are indices that form a triangle
+        self.tris.push([x, y, z]);
+
+        Ok(())
     }
 
     //return triangle Point coordinates
