@@ -69,6 +69,108 @@ impl VoxelGrid {
         }
     }
 
+    // Get the point coordinates at the 8 vertices of the cube (voxel version)
+    pub fn get_corner_positions(&self, x: usize, y: usize, z: usize) -> Vec<Point> {
+        // could be consolidated/more idiomatic
+        let p0 = self.points[[x, y, z]];
+        let p1 = self.points[[x + 1, y, z]];
+        let p2 = self.points[[x + 1, y + 1, z]];
+        let p3 = self.points[[x, y + 1, z]];
+        let p4 = self.points[[x, y, z + 1]];
+        let p5 = self.points[[x + 1, y, z + 1]];
+        let p6 = self.points[[x + 1, y + 1, z + 1]];
+        let p7 = self.points[[x, y + 1, z + 1]];
+
+        let corner_points = vec![p0, p1, p2, p3, p4, p5, p6, p7];
+
+        corner_points
+    }
+    
+    // Get the values at the 8 vertices of the cube (voxel version)
+    pub fn get_corner_values(&self, x: usize, y: usize, z: usize) -> Vec<f64> {
+        // could be consolidated/more idiomatic
+        let v0 = self.values[[x, y, z]];
+        let v1 = self.values[[x + 1, y, z]];
+        let v2 = self.values[[x + 1, y + 1, z]];
+        let v3 = self.values[[x, y + 1, z]];
+        let v4 = self.values[[x, y, z + 1]];
+        let v5 = self.values[[x + 1, y, z + 1]];
+        let v6 = self.values[[x + 1, y + 1, z + 1]];
+        let v7 = self.values[[x, y + 1, z + 1]];
+
+        let corner_vals = vec![v0, v1, v2, v3, v4, v5, v6, v7];
+
+        corner_vals
+    }
+
+    // Marching cubes algorithm
+    pub fn marching_cubes(&mut self, threshold: f64) -> Mesh {
+        let mut target_mesh = Mesh::new_empty();
+
+        let mut cube_count = 0;
+
+        let edge_table = &EDGE_TABLE.map(|e| format!("{:b}", e));
+
+        for x in 0..self.x_count - 1 {
+            for y in 0..self.y_count - 1 {
+                for z in 0..self.z_count - 1 {
+                    // corner positions
+                    let corner_positions = self.get_corner_positions(x, y, z);
+                    // voxel values (evaluated sdf)
+                    let eval_corners = self.get_corner_values( x, y, z);
+
+                    // Calculating state
+                    let state = get_state(&eval_corners, threshold);
+
+                    // edges
+                    // Example: 11001100
+                    // Edges 2, 3, 6, 7 are intersected
+                    let edges_bin_string = &edge_table[state];
+
+                    // Indices of edge endpoints (List of pairs)
+                    let (endpoint_indices, edges_to_use) =
+                        get_edge_endpoints(edges_bin_string, &CORNER_POINT_INDICES);
+
+                    // finding midpoints of edges
+                    let edge_points = get_edge_midpoints(
+                        endpoint_indices,
+                        edges_to_use,
+                        corner_positions,
+                        eval_corners,
+                        threshold,
+                    );
+
+                    // triangles
+                    // Example: [7, 3, 2, 6, 7, 2, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1]
+                    // Triangles: [p7, p3, p2], [p6, p7, p2]
+                    let tris = &TRI_TABLE[state];
+
+                    // adding triangle verts
+                    for tri in tris {
+                        if tri != &-1 {
+                            let new_vert = Point3::new(
+                                //converting Vec to array
+                                edge_points[&(*tri as usize)][2],
+                                edge_points[&(*tri as usize)][1],
+                                edge_points[&(*tri as usize)][0],
+                            );
+                            target_mesh.vertices.push(new_vert);
+                        }
+                    }
+                    cube_count += 1
+                }
+            }
+        }
+        // creating triangles
+        let mut v = 0;
+        while v < target_mesh.vertices.len() {
+            target_mesh.triangle_from_verts(v, v + 1, v + 2);
+            v += 3
+        }
+        println!("\nCube count: {}", cube_count);
+        return target_mesh;
+    }
+
     pub fn export_voxel_data(&self, path: &str) -> Result<(), Box<dyn Error>> {
         // https://levelup.gitconnected.com/working-with-csv-data-in-rust-7258163252f8
         // Creates new `Writer` for `stdout`
@@ -101,74 +203,6 @@ impl VoxelGrid {
 // ===========================================================
 // ======================= Marching cubes ====================
 // ===========================================================
-
-// Marching cubes algorithm
-pub fn march_voxels(voxels: &mut VoxelGrid, threshold: f64) -> Mesh {
-    let mut target_mesh = Mesh::new_empty();
-
-    let mut cube_count = 0;
-
-    let edge_table = &EDGE_TABLE.map(|e| format!("{:b}", e));
-
-    for x in 0..voxels.x_count - 1 {
-        for y in 0..voxels.y_count - 1 {
-            for z in 0..voxels.z_count - 1 {
-                // corner positions
-                let corner_positions = voxel_corner_positions(&voxels.points, x, y, z);
-                // voxel values (evaluated sdf)
-                let eval_corners = voxel_corner_values(&voxels, x, y, z);
-
-                // Calculating state
-                let state = get_state(&eval_corners, threshold);
-
-                // edges
-                // Example: 11001100
-                // Edges 2, 3, 6, 7 are intersected
-                let edges_bin_string = &edge_table[state];
-
-                // Indices of edge endpoints (List of pairs)
-                let (endpoint_indices, edges_to_use) =
-                    get_edge_endpoints(edges_bin_string, &CORNER_POINT_INDICES);
-
-                // finding midpoints of edges
-                let edge_points = get_edge_midpoints(
-                    endpoint_indices,
-                    edges_to_use,
-                    corner_positions,
-                    eval_corners,
-                    threshold,
-                );
-
-                // triangles
-                // Example: [7, 3, 2, 6, 7, 2, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1]
-                // Triangles: [p7, p3, p2], [p6, p7, p2]
-                let tris = &TRI_TABLE[state];
-
-                // adding triangle verts
-                for tri in tris {
-                    if tri != &-1 {
-                        let new_vert = Point3::new(
-                            //converting Vec to array
-                            edge_points[&(*tri as usize)][2],
-                            edge_points[&(*tri as usize)][1],
-                            edge_points[&(*tri as usize)][0],
-                        );
-                        target_mesh.vertices.push(new_vert);
-                    }
-                }
-                cube_count += 1
-            }
-        }
-    }
-    // creating triangles
-    let mut v = 0;
-    while v < target_mesh.vertices.len() {
-        target_mesh.triangle_from_verts(v, v + 1, v + 2);
-        v += 3
-    }
-    println!("\nCube count: {}", cube_count);
-    return target_mesh;
-}
 
 // ===========================================================
 // ====================== Interpolation ======================
@@ -243,40 +277,6 @@ pub fn eval_function(v: f64, threshold: f64) -> f64 {
     } else {
         0.0
     }
-}
-
-// Get the values at the 8 vertices of the cube (voxel version)
-pub fn voxel_corner_values(voxels: &VoxelGrid, x: usize, y: usize, z: usize) -> Vec<f64> {
-    // could be consolidated/more idiomatic
-    let v0 = voxels.values[[x, y, z]];
-    let v1 = voxels.values[[x + 1, y, z]];
-    let v2 = voxels.values[[x + 1, y + 1, z]];
-    let v3 = voxels.values[[x, y + 1, z]];
-    let v4 = voxels.values[[x, y, z + 1]];
-    let v5 = voxels.values[[x + 1, y, z + 1]];
-    let v6 = voxels.values[[x + 1, y + 1, z + 1]];
-    let v7 = voxels.values[[x, y + 1, z + 1]];
-
-    let corner_vals = vec![v0, v1, v2, v3, v4, v5, v6, v7];
-
-    corner_vals
-}
-
-// Get the point coordinates at the 8 vertices of the cube (voxel version)
-pub fn voxel_corner_positions(points: &Array3<Point>, x: usize, y: usize, z: usize) -> Vec<Point> {
-    // could be consolidated/more idiomatic
-    let p0 = points[[x, y, z]];
-    let p1 = points[[x + 1, y, z]];
-    let p2 = points[[x + 1, y + 1, z]];
-    let p3 = points[[x, y + 1, z]];
-    let p4 = points[[x, y, z + 1]];
-    let p5 = points[[x + 1, y, z + 1]];
-    let p6 = points[[x + 1, y + 1, z + 1]];
-    let p7 = points[[x, y + 1, z + 1]];
-
-    let corner_points = vec![p0, p1, p2, p3, p4, p5, p6, p7];
-
-    corner_points
 }
 
 // Get the midpoints of the edges of the cube
