@@ -1,10 +1,9 @@
 # A simple marching cubes implementation
 ||||
 |:-:|:-:|:-:|
-|<img src="img/coarse_sphere.png">|<img src="img/sinc.png">|<img src="img/ripple_sphere_cube.png">|
-|$\sqrt{x^2+y^2+z^2}-r=0$|$z - Asinc(f\sqrt{x^2+y^2}) = 0$|(SDFs) A sphere smoothly united with a cube and offset by a sinusoidal function based off of the cube|
-|10x10x10 grid|200x200x200 grid|200x200x200 grid|
-<img src="img/coarse_sphere.png">
+<img src="img/coarse_sphere.png">|<img src="img/sinc.png">|<img src="img/ripple_sphere_cube.png">
+$\sqrt{x^2+y^2+z^2}-r=0$|$z - Asinc(f\sqrt{x^2+y^2}) = 0$|(SDFs) A sphere smoothly united with a cube and offset by a sinusoidal function based off of the cube
+10x10x10 grid|200x200x200 grid|200x200x200 grid
 ### Usage:
 The map() function will be evaluated at each point in the grid. This could be anything that returns a value, but some signed distance functions are provided as samples. The code will extract the isosurface $f{(x,y,z)=0}$ by default).
 
