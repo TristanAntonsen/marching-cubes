@@ -34,6 +34,7 @@ pub fn marching_cubes(
         for y in 0..y_count - 1 {
             for z in 0..z_count - 1 {
                 // corner positions
+                // There's some redundancy/overlap that could be optimized
                 let corner_positions = get_corner_positions(min_point, x, y, z, scale);
 
                 // voxel values (evaluated sdf)
@@ -256,6 +257,7 @@ pub fn edges_from_lookup(edges: &String) -> Vec<usize> {
 pub fn remap(s: f64, range_in: [f64; 2], range_out: [f64; 2]) -> f64 {
     range_out[0] + (s - range_in[0]) * (range_out[1] - range_out[0]) / (range_in[1] - range_in[0])
 }
+
 
 // Return the interpolation factor t corresponding to iso_val
 pub fn find_t(v0: f64, v1: f64, iso_val: f64) -> f64 {
