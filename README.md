@@ -1,7 +1,7 @@
 # A simple marching cubes implementation
 ||||
 |:-:|:-:|:-:|
-<img src="marching-cubes/blob/main/img/coarse_sphere.png">|<img src="marching-cubes/blob/main/img/sinc.png">|<img src="marching-cubes/blob/main/img/ripple_sphere_cube.png">
+<img src="https://github.com/TristanAntonsen/marching-cubes/blob/main/img/coarse_sphere.png">|<img src="https://github.com/TristanAntonsen/marching-cubes/blob/main/img/sinc.png">|<img src="https://github.com/TristanAntonsen/marching-cubes/blob/main/img/ripple_sphere_cube.png">
 $\sqrt{x^2+y^2+z^2}-r=0$|$z - Asinc(f\sqrt{x^2+y^2}) = 0$|(SDFs) A sphere smoothly united with a cube and offset by a sinusoidal function based off of the cube
 10x10x10 grid|200x200x200 grid|200x200x200 grid
 ### Usage:
