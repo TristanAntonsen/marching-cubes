@@ -14,7 +14,7 @@ pub fn rounded_box(p: Point, c: Point, s: Vector, r: f64) -> f64 {
     // Modified to account for the radius without changing the size of the box
     // 
     let po = p - c;
-    let pf: Vector = vector![po.x.abs(), po.y.abs(), po.z.abs()] - (s * 0.5 - vector![r, r, r]);
+    let pf: Vector = vector![po.x.abs(), po.y.abs(), po.z.abs()] - (s - vector![r, r, r]);
     return vector![pf.x.max(0.0), pf.y.max(0.0), pf.z.max(0.0)].norm()
         + pf.x.max(pf.y.max(pf.z)).min(0.0)
         - r;
