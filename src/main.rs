@@ -1,4 +1,4 @@
-use marching_cubes::{export_stl, marching_cubes, Point};
+use marching_cubes::{marching_cubes, Point};
 use nalgebra::{point, vector};
 use std::time::Instant;
 
@@ -10,17 +10,11 @@ fn main() {
 
     // The function that gets marched
     fn map(p: Point) -> f64 {
-
-        let s1 = sdf::sphere(p, point![0., 0., 0.], 100.0);
-        let s2 = sdf::sphere(p, point![0., 0., 0.], 75.0);
-        let b = sdf::rounded_box(p, point![0., 0., 0.], vector![180., 180., 180.], 10.);
-        let g = sdf::boolean_intersection(sdf::gyroid(p, 0.15, 0.5), s2, 4.);
-
-        sdf::boolean_union(g, sdf::boolean_subtraction(b, s1, 15.), 10.0)
-        
+        let s = sdf::sphere(p, point![30., 30., 30.], 65.0);
+        let b = sdf::rounded_box(p, point![-30., -30., -30.], vector![60., 60., 60.], 10.);
+        sdf::boolean_union(b - 1. * (0.5 * s).sin(), s, 20.)
     }
 
-    // eval function version
     let mesh = marching_cubes(
         &map,                        // function to evaluate
         point![-100., -100., -100.], //minimum bounding box point
@@ -32,12 +26,10 @@ fn main() {
     );
 
     // exporting to stl
-    export_stl("marched.stl", mesh);
+    mesh.export_stl("marched.stl");
 
     let elapsed = now.elapsed().as_secs_f64();
     let s = elapsed % 60.;
     let min = (elapsed / 60.).floor() as u8;
     println!("\n{} min {:.2?} seconds", min, s);
 }
-
-
