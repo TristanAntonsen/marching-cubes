@@ -152,10 +152,9 @@ pub fn center_box(center: Point, dims: Vector) -> [Point; 2] {
 
 // get the state of the 8 vertices of the cube
 pub fn get_state(eval_corners: &Vec<f64>, threshold: f64) -> Result<usize, MarchingCubesError> {
-
     // Make sure eval_corners contains exactly 8 values
     if eval_corners.len() != 8 {
-        return Err(MarchingCubesError)
+        return Err(MarchingCubesError);
     }
 
     // 0 if <= threshold, 1 if > threshold
@@ -258,7 +257,6 @@ pub fn remap(s: f64, range_in: [f64; 2], range_out: [f64; 2]) -> f64 {
     range_out[0] + (s - range_in[0]) * (range_out[1] - range_out[0]) / (range_in[1] - range_in[0])
 }
 
-
 // Return the interpolation factor t corresponding to iso_val
 pub fn find_t(v0: f64, v1: f64, iso_val: f64) -> f64 {
     (iso_val - v0) / (v1 - v0)
@@ -306,7 +304,12 @@ impl Mesh {
     }
 
     //create a triangle from Point indices
-    pub fn triangle_from_verts(&mut self, x: usize, y: usize, z: usize) -> Result<(), MarchingCubesError> {
+    pub fn triangle_from_verts(
+        &mut self,
+        x: usize,
+        y: usize,
+        z: usize,
+    ) -> Result<(), MarchingCubesError> {
         // Need to make sure mesh isn't empty
         if self.vertices.len() <= x.max(y.max(z)) {
             return Err(MarchingCubesError);
@@ -346,64 +349,64 @@ impl Mesh {
 
         cross / cross.norm() //normal vector
     }
-}
 
-//writing mesh to STL:
-pub fn export_stl(path: &str, mesh: Mesh) {
-    //based on: https://en.wikipedia.org/wiki/STL_(file_format)
+    //writing mesh to STL:
+    pub fn export_stl(&self, path: &str) {
+        //based on: https://en.wikipedia.org/wiki/STL_(file_format)
 
-    let mut writer = vec![];
-    let mut normal;
-    //Writing STL header UINT8[80] – Header - 80 bytes
-    let header = [0u8; 80];
-    writer.write_all(&header).expect("Error");
+        let mut writer = vec![];
+        let mut normal;
+        //Writing STL header UINT8[80] – Header - 80 bytes
+        let header = [0u8; 80];
+        writer.write_all(&header).expect("Error");
 
-    //Writing tri count
-    let tri_count = mesh.tris.len();
-    writer
-        .write_u32::<LittleEndian>(tri_count as u32)
-        .expect("Error");
-
-    //FOR EACH TRIANGLE
-    let mut tri = 0;
-    // let tri_vert_count = mesh.triangles.len();
-    let tri_count = mesh.tris.len();
-    while tri < tri_count {
-        //write triangle normal
-        normal = mesh.tri_normal(tri); //calculate normal
+        //Writing tri count
+        let tri_count = self.tris.len();
         writer
-            .write_f32::<LittleEndian>((normal.x) as f32)
-            .expect("Error"); // write normal values
-        writer
-            .write_f32::<LittleEndian>((normal.y) as f32)
-            .expect("Error");
-        writer
-            .write_f32::<LittleEndian>((normal.z) as f32)
+            .write_u32::<LittleEndian>(tri_count as u32)
             .expect("Error");
 
-        //write each Point
-        let vertices = mesh.tri_coords(tri);
-        for point in vertices {
-            // write Point coordinates
+        //FOR EACH TRIANGLE
+        let mut tri = 0;
+        // let tri_vert_count = mesh.triangles.len();
+        let tri_count = self.tris.len();
+        while tri < tri_count {
+            //write triangle normal
+            normal = self.tri_normal(tri); //calculate normal
             writer
-                .write_f32::<LittleEndian>(point[0] as f32)
+                .write_f32::<LittleEndian>((normal.x) as f32)
+                .expect("Error"); // write normal values
+            writer
+                .write_f32::<LittleEndian>((normal.y) as f32)
                 .expect("Error");
             writer
-                .write_f32::<LittleEndian>(point[1] as f32)
+                .write_f32::<LittleEndian>((normal.z) as f32)
                 .expect("Error");
-            writer
-                .write_f32::<LittleEndian>(point[2] as f32)
-                .expect("Error");
+
+            //write each Point
+            let vertices = self.tri_coords(tri);
+            for point in vertices {
+                // write Point coordinates
+                writer
+                    .write_f32::<LittleEndian>(point[0] as f32)
+                    .expect("Error");
+                writer
+                    .write_f32::<LittleEndian>(point[1] as f32)
+                    .expect("Error");
+                writer
+                    .write_f32::<LittleEndian>(point[2] as f32)
+                    .expect("Error");
+            }
+            //write attribute byte count
+            writer.write_u16::<LittleEndian>(0).expect("Error");
+            tri += 1;
         }
-        //write attribute byte count
-        writer.write_u16::<LittleEndian>(0).expect("Error");
-        tri += 1;
-    }
-    //write final stl
-    fs::write(path, writer).expect("Something went wrong.");
+        //write final stl
+        fs::write(path, writer).expect("Something went wrong.");
 
-    println!("Vertices: {:?}", mesh.vertices.len());
-    println!("Triangles: {:?}\n", tri_count);
+        println!("Vertices: {:?}", self.vertices.len());
+        println!("Triangles: {:?}\n", tri_count);
+    }
 }
 
 // =========================================================
