@@ -17,11 +17,11 @@ fn main() {
 
     let mesh = marching_cubes(
         &map,                        // function to evaluate
-        point![-100., -100., -100.], //minimum bounding box point
+        point![-100., -100., -100.], // minimum bounding box point
         200,                         // x count
         200,                         // y count
         200,                         // z count
-        0.,                          // iso val
+        0.,                          // isosurface value
         1.,                          // scale
     );
 
@@ -35,3 +35,12 @@ fn main() {
     println!("Exported: {}", file_path);
     println!("Time: {} min {:.2?} seconds\n", min, s);
 }
+
+
+
+// fn sinc(p: Point) -> f64 {
+//     let f = 0.375; // frequency
+//     let a = 20.;   // amplitude
+//     return p.z - a * (f * (p.x.powf(2.) + p.y.powf(2.)).sqrt()).sinc()
+
+// }
