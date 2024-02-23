@@ -26,10 +26,12 @@ fn main() {
     );
 
     // exporting to stl
-    mesh.export_stl("marched.stl");
+    let file_path = "marched.stl";
+    mesh.export_stl(file_path);
 
     let elapsed = now.elapsed().as_secs_f64();
     let s = elapsed % 60.;
     let min = (elapsed / 60.).floor() as u8;
-    println!("\n{} min {:.2?} seconds", min, s);
+    println!("Exported: {}", file_path);
+    println!("Time: {} min {:.2?} seconds\n", min, s);
 }
