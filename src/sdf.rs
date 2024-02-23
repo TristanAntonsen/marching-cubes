@@ -1,40 +1,28 @@
-use nalgebra::{point, distance};
-use marching_cubes::Point;
+use marching_cubes::{Point, Vector, remap};
+use nalgebra::{distance, vector};
 
 // ===========================================================
 // =========== Some Distance Equations to Test With ==========
 // ===========================================================
 // mostly thanks to https://iquilezles.org/
 
-
 pub fn sphere(p: Point, center: Point, r: f64) -> f64 {
     distance(&p, &center) - r
 }
 
-pub fn gyroid(p: Point, center: Point, half_width: f64, f: f64, t: f64) -> f64 {
+pub fn rounded_box(p: Point, c: Point, s: Vector, r: f64) -> f64 {
+    // Modified to account for the radius without changing the size of the box
+    // 
+    let po = p - c;
+    let pf: Vector = vector![po.x.abs(), po.y.abs(), po.z.abs()] - (s * 0.5 - vector![r, r, r]);
+    return vector![pf.x.max(0.0), pf.y.max(0.0), pf.z.max(0.0)].norm()
+        + pf.x.max(pf.y.max(pf.z)).min(0.0)
+        - r;
+}
+
+pub fn gyroid(p: Point, f: f64, t: f64) -> f64 {
     // f: frequency
     // t: thickness
-
-    let min_pt = point![
-        center.x - half_width,
-        center.y - half_width,
-        center.z - half_width
-    ];
-    let max_pt = point![
-        center.x + half_width,
-        center.y + half_width,
-        center.z + half_width
-    ];
-
-    if p.x < min_pt[0] || p.x > max_pt[0] {
-        return 1.0;
-    }
-    if p.y < min_pt[1] || p.y > max_pt[1] {
-        return 1.0;
-    }
-    if p.z < min_pt[2] || p.z > max_pt[2] {
-        return 1.0;
-    }
 
     let g = (f * p.x).sin() * (f * p.y).cos()
         + (f * p.y).sin() * (f * p.z).cos()
@@ -74,4 +62,19 @@ pub fn smooth_min(a: f64, b: f64, mut k: f64) -> f64 {
     let h = (k - (a - b).abs()).max(0.0) / k;
 
     a.min(b) - h * h * k * (1.0 / 4.0)
+}
+
+// (same as lerp)
+pub fn mix(a: f64, b: f64, t: f64) -> f64 {
+    a + (b - a) * t
+}
+
+pub fn ramp(v: f64, in_min: f64, in_max: f64, out_min: f64, out_max: f64) -> f64 {
+    if v < in_min {
+        return out_min;
+    } else if v > in_max {
+        return out_max;
+    } else {
+        return remap(v, [in_min, in_max], [out_min, out_max]);
+    }
 }
