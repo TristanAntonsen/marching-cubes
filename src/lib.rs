@@ -64,20 +64,21 @@ pub fn marching_cubes(
                 // triangles
                 // Example: [7, 3, 2, 6, 7, 2, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1]
                 // Triangles: [p7, p3, p2], [p6, p7, p2]
-                let tris = &TRI_TABLE[state];
+                let tris = TRI_TABLE[state];
 
                 // adding triangle verts
-                for tri in tris {
-                    if tri != &-1 {
+                tris.iter().for_each(|t| {
+                    if t != &-1 {
                         let new_vert = Point3::new(
                             //converting Vec to array
-                            edge_points[&(*tri as usize)][2],
-                            edge_points[&(*tri as usize)][1],
-                            edge_points[&(*tri as usize)][0],
+                            edge_points[&(*t as usize)][2],
+                            edge_points[&(*t as usize)][1],
+                            edge_points[&(*t as usize)][0],
                         );
                         target_mesh.vertices.push(new_vert);
                     }
-                }
+                });
+            
                 cube_count += 1
             }
         }
