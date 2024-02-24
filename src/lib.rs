@@ -26,63 +26,78 @@ pub fn marching_cubes(
 ) -> Mesh {
     let mut target_mesh = Mesh::new_empty();
 
-    let mut cube_count = 0;
-
     let edge_table = &EDGE_TABLE.map(|e| format!("{:b}", e));
+    let vertices = (0..x_count)
+        .map(|x| {
+            (0..y_count)
+                .map(|y| {
+                    (0..z_count)
+                        .map(|z| {
+                            // corner positions
+                            // There's some redundancy/overlap that could be optimized
+                            let corner_positions = get_corner_positions(min_point, x, y, z, scale);
 
-    for x in 0..x_count - 1 {
-        for y in 0..y_count - 1 {
-            for z in 0..z_count - 1 {
-                // corner positions
-                // There's some redundancy/overlap that could be optimized
-                let corner_positions = get_corner_positions(min_point, x, y, z, scale);
+                            // voxel values (evaluated sdf)
+                            let eval_corners =
+                                corner_positions.iter().map(|p| eval_function(*p)).collect();
 
-                // voxel values (evaluated sdf)
-                let eval_corners = corner_positions.iter().map(|p| eval_function(*p)).collect();
+                            // Calculating state
+                            let state =
+                                get_state(&eval_corners, threshold).expect("Could not get state");
 
-                // Calculating state
-                let state = get_state(&eval_corners, threshold).expect("Could not get state");
+                            // edges
+                            // Example: 11001100
+                            // Edges 2, 3, 6, 7 are intersected
+                            let edges_bin_string = &edge_table[state];
 
-                // edges
-                // Example: 11001100
-                // Edges 2, 3, 6, 7 are intersected
-                let edges_bin_string = &edge_table[state];
+                            // Indices of edge endpoints (List of pairs)
+                            let (endpoint_indices, edges_to_use) =
+                                get_edge_endpoints(edges_bin_string, &CORNER_POINT_INDICES);
 
-                // Indices of edge endpoints (List of pairs)
-                let (endpoint_indices, edges_to_use) =
-                    get_edge_endpoints(edges_bin_string, &CORNER_POINT_INDICES);
+                            // finding midpoints of edges
+                            let edge_points = get_edge_midpoints(
+                                endpoint_indices,
+                                edges_to_use,
+                                corner_positions,
+                                eval_corners,
+                                threshold,
+                            );
 
-                // finding midpoints of edges
-                let edge_points = get_edge_midpoints(
-                    endpoint_indices,
-                    edges_to_use,
-                    corner_positions,
-                    eval_corners,
-                    threshold,
-                );
+                            // triangles
+                            // Example: [7, 3, 2, 6, 7, 2, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1]
+                            // Triangles: [p7, p3, p2], [p6, p7, p2]
+                            let tris = TRI_TABLE[state];
 
-                // triangles
-                // Example: [7, 3, 2, 6, 7, 2, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1]
-                // Triangles: [p7, p3, p2], [p6, p7, p2]
-                let tris = TRI_TABLE[state];
+                            // adding triangle verts
+                            let new_verts = tris
+                                .iter()
+                                .filter(|v| v != &&-1)
+                                .map(|t| {
+                                    let new_vert = Point3::new(
+                                        //converting Vec to array
+                                        edge_points[&(*t as usize)][2],
+                                        edge_points[&(*t as usize)][1],
+                                        edge_points[&(*t as usize)][0],
+                                    );
+                                    // target_mesh.vertices.push(new_vert);
+                                    new_vert
+                                })
+                                .collect::<Vec<Point>>();
+                            new_verts
+                        })
+                        .flatten()
+                        .collect::<Vec<Point>>()
+                })
+                .flatten()
+                .collect::<Vec<Point>>()
+        })
+        .flatten()
+        .collect::<Vec<Point>>();
 
-                // adding triangle verts
-                tris.iter().for_each(|t| {
-                    if t != &-1 {
-                        let new_vert = Point3::new(
-                            //converting Vec to array
-                            edge_points[&(*t as usize)][2],
-                            edge_points[&(*t as usize)][1],
-                            edge_points[&(*t as usize)][0],
-                        );
-                        target_mesh.vertices.push(new_vert);
-                    }
-                });
-            
-                cube_count += 1
-            }
-        }
-    }
+    target_mesh.vertices = vertices;
+
+    //////////////////////////////////////////////////////////////////////////////////////////////////////
+
     // creating triangles
     let mut v = 0;
     while v < target_mesh.vertices.len() {
@@ -91,7 +106,7 @@ pub fn marching_cubes(
             .expect("Could not create triangle.");
         v += 3
     }
-    println!("\nCube count: {}", cube_count);
+    println!("\nCube count: {}", x_count * y_count * z_count);
     return target_mesh;
 }
 
@@ -456,7 +471,9 @@ const CORNER_POINT_INDICES: [[i8; 2]; 12] = [
 // =============== TRI TABLE ===============
 
 const TRI_TABLE: [[i8; 16]; 256] = [
-    [-1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1],
+    [
+        -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
+    ],
     [0, 8, 3, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1],
     [0, 1, 9, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1],
     [1, 8, 3, 9, 8, 1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1],
