@@ -1,6 +1,6 @@
-use marching_cubes::{marching_cubes, Point};
+use marching_cubes::{marching_cubes, Point, EvalFunction};
 use nalgebra::{point, vector};
-use std::time::Instant;
+use std::{sync::Mutex, time::Instant};
 
 #[allow(dead_code)]
 mod sdf;
@@ -15,8 +15,13 @@ fn main() {
         sdf::boolean_union(b - 1. * (0.5 * s).sin(), s, 20.)
     }
 
+    // Create a closure that implements the EvalFunction trait. This enables multi-threading
+    let thread_safe_map: &Mutex<EvalFunction> = &Mutex::new(Box::new(|point| {
+        map(point)
+    }));
+
     let mesh = marching_cubes(
-        &map,                        // function to evaluate
+        &thread_safe_map,                        // function to evaluate
         point![-100., -100., -100.], // minimum bounding box point
         200,                         // x count
         200,                         // y count
@@ -35,7 +40,6 @@ fn main() {
     println!("Exported: {}", file_path);
     println!("Time: {} min {:.2?} seconds\n", min, s);
 }
-
 
 
 // fn sinc(p: Point) -> f64 {
