@@ -1,4 +1,5 @@
 use byteorder::{LittleEndian, WriteBytesExt};
+use evalexpr::{eval_with_context, ContextWithMutableVariables, HashMapContext, Value};
 use nalgebra::{point, Point3, Vector3};
 use rayon::prelude::*;
 use std::{collections::HashMap, fs, io::Write, sync::Mutex};
@@ -11,8 +12,118 @@ pub type Point = Point3<f64>;
 pub type Vector = Vector3<f64>;
 pub const ORIGIN: Point3<f64> = Point3::new(0.0, 0.0, 0.0);
 pub type CompiledFunction = dyn Fn(Point) -> f64 + Sync;
+pub type SymbolicExpression<'a> = &'a str;
 
-// Marching cubes algorithm
+
+// const GLOBAL_NAMES: GlobalVarNames = GlobalVarNames::new();
+
+pub fn import_expression(filepath: &str) -> Result<String, Box<dyn std::error::Error>> {
+    let data = fs::read_to_string(filepath)?;
+    Ok(data)
+}
+
+fn init_context() -> HashMapContext {
+    let mut context = HashMapContext::new();
+    context.set_value(String::from('x'), Value::from(0.)).unwrap();
+    context.set_value(String::from('y'), Value::from(0.)).unwrap();
+    context.set_value(String::from('z'), Value::from(0.)).unwrap();
+
+    context
+}
+
+fn update_context(context: &mut HashMapContext, point: Point) -> &HashMapContext {
+    context.set_value(String::from('x'), Value::from(point.x)).unwrap();
+    context.set_value(String::from('y'), Value::from(point.y)).unwrap();
+    context.set_value(String::from('z'), Value::from(point.z)).unwrap();
+
+    context
+}
+
+// Marching cubes algorithm (evaluated version)
+pub fn marching_cubes_evaluated(
+    expression: SymbolicExpression,
+    min_point: Point,
+    x_count: usize,
+    y_count: usize,
+    z_count: usize,
+    threshold: f64,
+    scale: f64,
+) -> Mesh {
+    let mut target_mesh = Mesh::new_empty();
+
+    let edge_table = &EDGE_TABLE.map(|e| format!("{:b}", e));
+
+
+    let vertices = (0..x_count)
+        .into_par_iter()
+        .map(|x| {
+            let mut context = init_context(); // Avoid thread confusion by creating here
+            (0..y_count)
+                .map(|y| {
+                    (0..z_count)
+                        .map(|z| {
+                            // corner positions
+                            // There's some redundancy/overlap that could be optimized
+                            let corner_positions = get_corner_positions(min_point, x, y, z, scale);
+
+                            // voxel values (evaluated sdf)
+                            let eval_corners = corner_positions
+                                .iter()
+                                .map(|p| {
+                                    update_context(&mut context, *p);
+                                    eval_with_context(&expression, &context)
+                                        .unwrap()
+                                        .as_float()
+                                        .unwrap()
+                                })
+                                .collect();
+
+                            // Calculating state
+                            let state =
+                                get_state(&eval_corners, threshold).expect("Could not get state");
+
+                            // edges
+                            // Example: 11001100
+                            // Edges 2, 3, 6, 7 are intersected
+                            let edges_bin_string = &edge_table[state];
+
+                            // Indices of edge endpoints (List of pairs)
+                            let (endpoint_indices, edges_to_use) =
+                                get_edge_endpoints(edges_bin_string, &CORNER_POINT_INDICES);
+
+                            // finding midpoints of edges
+                            let edge_points = get_edge_midpoints(
+                                endpoint_indices,
+                                edges_to_use,
+                                corner_positions,
+                                eval_corners,
+                                threshold,
+                            );
+
+                            // adding triangle verts
+                            let new_verts = triangle_verts_from_state(edge_points, state);
+                            new_verts
+                        })
+                        .flatten()
+                        .collect::<Vec<Point>>()
+                })
+                .flatten()
+                .collect::<Vec<Point>>()
+        })
+        .flatten()
+        .collect::<Vec<Point>>();
+
+    // Adding vertices to the mesh
+    target_mesh.set_vertices(vertices);
+
+    // Creating triangles from the vertices
+    target_mesh.create_triangles();
+
+    println!("\nCube count: {}", x_count * y_count * z_count);
+    return target_mesh;
+}
+
+// Marching cubes algorithm (compiled version)
 pub fn marching_cubes_compiled(
     function: &Mutex<CompiledFunction>,
     min_point: Point,
@@ -285,7 +396,6 @@ pub fn interpolate_points(p0: Point, p1: Point, t: f64) -> Vec<f64> {
         .collect();
     pf
 }
-
 
 // ==========================================================
 // ======================= Voxel Grid =======================

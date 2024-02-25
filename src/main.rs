@@ -1,14 +1,15 @@
 use evalexpr::*;
-use marching_cubes::{marching_cubes_compiled, CompiledFunction, Mesh, Point};
+use marching_cubes::{import_expression, marching_cubes_compiled, marching_cubes_evaluated, CompiledFunction, Mesh, Point};
 use nalgebra::{point, vector};
 use std::{fs, sync::Mutex, time::Instant};
 #[allow(dead_code)]
-mod sdf;
+pub mod sdf;
 
 fn main() {
     let now = Instant::now();
 
-    let mesh = evaluated_example();
+    // let mesh = compiled_example();
+    let mesh = evaluated_string_example();
 
     // // exporting to stl
     let file_path = "marched.stl";
@@ -21,7 +22,21 @@ fn main() {
     println!("Time: {} min {:.2?} seconds\n", min, s);
 }
 
-fn evaluated_example() -> Mesh {
+fn evaluated_string_example() -> Mesh {
+    let expr = &import_expression("expr.txt").expect("Could not import expression.");
+
+    marching_cubes_evaluated(
+        &expr,            // function to evaluate
+        point![-25., -25., -25.], // minimum bounding box point
+        100,                         // x count
+        100,                         // y count
+        100,                         // z count
+        0.,                          // isosurface value
+        1.,                          // scale
+    )
+}
+
+fn compiled_example() -> Mesh {
     // The function that gets marched
     fn map(p: Point) -> f64 {
         let s = sdf::sphere(p, point![30., 30., 30.], 65.0);
