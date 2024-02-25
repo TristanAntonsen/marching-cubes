@@ -1,15 +1,13 @@
-use evalexpr::*;
-use marching_cubes::{import_expression, marching_cubes_compiled, marching_cubes_evaluated, CompiledFunction, Mesh, Point};
+use marching_cubes::{import_expression, marching_cubes_compiled, marching_cubes_evaluated, CompiledFunction, Mesh, Point, SDF};
 use nalgebra::{point, vector};
-use std::{fs, sync::Mutex, time::Instant};
+use std::{sync::Mutex, time::Instant};
 #[allow(dead_code)]
-pub mod sdf;
 
 fn main() {
     let now = Instant::now();
 
-    // let mesh = compiled_example();
-    let mesh = evaluated_string_example();
+    let mesh = compiled_example();
+    // let mesh = evaluated_string_example();
 
     // // exporting to stl
     let file_path = "marched.stl";
@@ -39,9 +37,9 @@ fn evaluated_string_example() -> Mesh {
 fn compiled_example() -> Mesh {
     // The function that gets marched
     fn map(p: Point) -> f64 {
-        let s = sdf::sphere(p, point![30., 30., 30.], 65.0);
-        let b = sdf::rounded_box(p, point![-30., -30., -30.], vector![60., 60., 60.], 10.);
-        sdf::boolean_union(b - 1. * (0.5 * s).sin(), s, 20.)
+        let s = SDF::sphere(p, point![30., 30., 30.], 65.0);
+        let b = SDF::rounded_box(p, point![-30., -30., -30.], vector![60., 60., 60.], 10.);
+        SDF::boolean_union(b - 1. * (0.5 * s).sin(), s, 20.)
     }
 
     // Create a closure that implements the CompiledFunction trait. This enables multi-threading
