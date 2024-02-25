@@ -1,4 +1,4 @@
-use marching_cubes::{marching_cubes, Point, EvalFunction};
+use marching_cubes::{marching_cubes, EvalFunction, MarchingCubesError, Mesh, Point};
 use nalgebra::{point, vector};
 use std::{sync::Mutex, time::Instant};
 
@@ -8,27 +8,7 @@ mod sdf;
 fn main() {
     let now = Instant::now();
 
-    // The function that gets marched
-    fn map(p: Point) -> f64 {
-        let s = sdf::sphere(p, point![30., 30., 30.], 65.0);
-        let b = sdf::rounded_box(p, point![-30., -30., -30.], vector![60., 60., 60.], 10.);
-        sdf::boolean_union(b - 1. * (0.5 * s).sin(), s, 20.)
-    }
-
-    // Create a closure that implements the EvalFunction trait. This enables multi-threading
-    let thread_safe_map: &Mutex<EvalFunction> = &Mutex::new(Box::new(|point| {
-        map(point)
-    }));
-
-    let mesh = marching_cubes(
-        &thread_safe_map,                        // function to evaluate
-        point![-100., -100., -100.], // minimum bounding box point
-        200,                         // x count
-        200,                         // y count
-        200,                         // z count
-        0.,                          // isosurface value
-        1.,                          // scale
-    );
+    let mesh = evaluated_example();
 
     // exporting to stl
     let file_path = "marched.stl";
@@ -41,6 +21,29 @@ fn main() {
     println!("Time: {} min {:.2?} seconds\n", min, s);
 }
 
+fn evaluated_example() -> Mesh {
+    let now = Instant::now();
+
+    // The function that gets marched
+    fn map(p: Point) -> f64 {
+        let s = sdf::sphere(p, point![30., 30., 30.], 65.0);
+        let b = sdf::rounded_box(p, point![-30., -30., -30.], vector![60., 60., 60.], 10.);
+        sdf::boolean_union(b - 1. * (0.5 * s).sin(), s, 20.)
+    }
+
+    // Create a closure that implements the EvalFunction trait. This enables multi-threading
+    let thread_safe_map: &Mutex<EvalFunction> = &Mutex::new(Box::new(|point| map(point)));
+
+    marching_cubes(
+        &thread_safe_map,         // function to evaluate
+        point![-100., -100., -100.], // minimum bounding box point
+        200,                      // x count
+        200,                      // y count
+        200,                      // z count
+        0.,                       // isosurface value
+        1.,                       // scale
+    )
+}
 
 // fn sinc(p: Point) -> f64 {
 //     let f = 0.375; // frequency
