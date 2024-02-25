@@ -10,11 +10,11 @@ use std::{collections::HashMap, fs, io::Write, sync::Mutex};
 pub type Point = Point3<f64>;
 pub type Vector = Vector3<f64>;
 pub const ORIGIN: Point3<f64> = Point3::new(0.0, 0.0, 0.0);
-pub type EvalFunction = dyn Fn(Point) -> f64 + Sync;
+pub type CompiledFunction = dyn Fn(Point) -> f64 + Sync;
 
 // Marching cubes algorithm
-pub fn marching_cubes(
-    eval_function: &Mutex<EvalFunction>,
+pub fn marching_cubes_compiled(
+    function: &Mutex<CompiledFunction>,
     min_point: Point,
     x_count: usize,
     y_count: usize,
@@ -23,7 +23,7 @@ pub fn marching_cubes(
     scale: f64,
 ) -> Mesh {
     let mut target_mesh = Mesh::new_empty();
-    let eval_function = eval_function.lock().unwrap();
+    let function = function.lock().unwrap();
 
     let edge_table = &EDGE_TABLE.map(|e| format!("{:b}", e));
 
@@ -40,7 +40,7 @@ pub fn marching_cubes(
 
                             // voxel values (evaluated sdf)
                             let eval_corners =
-                                corner_positions.iter().map(|p| eval_function(*p)).collect();
+                                corner_positions.iter().map(|p| function(*p)).collect();
 
                             // Calculating state
                             let state =
