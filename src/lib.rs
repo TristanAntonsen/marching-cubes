@@ -103,25 +103,24 @@ pub fn marching_cubes(
         .flatten()
         .collect::<Vec<Point>>();
 
-    target_mesh.vertices = vertices;
+    // Adding vertices to the mesh
+    target_mesh.set_vertices(vertices);
 
-    // creating triangles
-    let mut v = 0;
-    while v < target_mesh.vertices.len() {
-        target_mesh
-            .triangle_from_verts(v, v + 1, v + 2)
-            .expect("Could not create triangle.");
-        v += 3
-    }
+    // Creating triangles from the vertices
+    target_mesh.create_triangles();
+
     println!("\nCube count: {}", x_count * y_count * z_count);
     return target_mesh;
 }
+
+// ===========================================================
+// ============== Marching cubes helper functions ============
+// ===========================================================
 
 fn triangle_verts_from_state(edge_points: HashMap<usize, Vec<f64>>, state: usize) -> Vec<Point> {
     // triangles (TRI_TABLE[state])
     // Example: [7, 3, 2, 6, 7, 2, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1]
     // Triangles: [p7, p3, p2], [p6, p7, p2]
-    // adding triangle verts
     let new_verts = TRI_TABLE[state]
         .iter()
         .filter(|v| v != &&-1)
@@ -138,10 +137,6 @@ fn triangle_verts_from_state(edge_points: HashMap<usize, Vec<f64>>, state: usize
         .collect::<Vec<Point>>();
     new_verts
 }
-
-// ===========================================================
-// ============== Marching cubes helper functions ============
-// ===========================================================
 
 // Get the point coordinates at the 8 vertices of the cube (voxel version)
 pub fn get_corner_positions(
@@ -393,6 +388,20 @@ impl Mesh {
         let cross = v_a_b.cross(&v_b_c);
 
         cross / cross.norm() //normal vector
+    }
+
+    pub fn create_triangles(&mut self) -> () {
+        let mut v = 0;
+        while v < self.vertices.len() {
+            self
+                .triangle_from_verts(v, v + 1, v + 2)
+                .expect("Could not create triangle.");
+            v += 3
+        }
+    }
+
+    pub fn set_vertices(&mut self, vertices: Vec<Point>) -> () {
+        self.vertices = vertices
     }
 
     //writing mesh to STL:
