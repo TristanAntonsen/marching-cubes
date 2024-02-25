@@ -32,6 +32,18 @@ impl VoxelGrid {
     pub fn set(&mut self, x: usize, y: usize, z: usize, v: f64) {
         self.values[z][y][x] = v
     }
+    pub fn voxel_corner_indices(&self, x: usize, y: usize, z: usize) -> [[usize; 3]; 8] {
+        // could be consolidated/more idiomatic
+        let c0 = [x, y, z];
+        let c1 = [x + 1, y, z];
+        let c2 = [x + 1, y + 1, z];
+        let c3 = [x, y + 1, z];
+        let c4 = [x, y, z + 1];
+        let c5 = [x + 1, y, z + 1];
+        let c6 = [x + 1, y + 1, z + 1];
+        let c7 = [x, y + 1, z + 1];
+        return [c0, c1, c2, c3, c4, c5, c6, c7];
+    }
 }
 
 // ===========================================================
@@ -138,14 +150,8 @@ fn triangle_verts_from_state(edge_points: HashMap<usize, Vec<f64>>, state: usize
     new_verts
 }
 
-// Get the point coordinates at the 8 vertices of the cube (voxel version)
-pub fn get_corner_positions(
-    min_point: Point,
-    x: usize,
-    y: usize,
-    z: usize,
-    scale: f64,
-) -> Vec<Point> {
+// Get the point coordinates at the 8 vertices of the cube
+fn get_corner_positions(min_point: Point, x: usize, y: usize, z: usize, scale: f64) -> Vec<Point> {
     let xf = scale * x as f64;
     let yf = scale * y as f64;
     let zf = scale * z as f64;
@@ -393,8 +399,7 @@ impl Mesh {
     pub fn create_triangles(&mut self) -> () {
         let mut v = 0;
         while v < self.vertices.len() {
-            self
-                .triangle_from_verts(v, v + 1, v + 2)
+            self.triangle_from_verts(v, v + 1, v + 2)
                 .expect("Could not create triangle.");
             v += 3
         }
