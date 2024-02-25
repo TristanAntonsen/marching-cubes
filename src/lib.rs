@@ -12,10 +12,31 @@ pub type Vector = Vector3<f64>;
 pub const ORIGIN: Point3<f64> = Point3::new(0.0, 0.0, 0.0);
 pub type EvalFunction = dyn Fn(Point) -> f64 + Sync;
 
+// ==========================================================
+// ======================= Voxel Grid =======================
+// ==========================================================
+
+pub struct VoxelGrid {
+    pub size_x: u32,
+    pub size_y: u32,
+    pub size_z: u32,
+    pub min_point: Point,
+    pub scale: f64,
+    pub values: Vec<Vec<Vec<f64>>>,
+}
+
+impl VoxelGrid {
+    pub fn get(&self, x: usize, y: usize, z: usize) -> f64 {
+        self.values[z][y][x]
+    }
+    pub fn set(&mut self, x: usize, y: usize, z: usize, v: f64) {
+        self.values[z][y][x] = v
+    }
+}
+
 // ===========================================================
 // ======================= Marching cubes ====================
 // ===========================================================
-// The function that gets marched
 
 // Marching cubes algorithm
 pub fn marching_cubes(
@@ -27,11 +48,11 @@ pub fn marching_cubes(
     threshold: f64,
     scale: f64,
 ) -> Mesh {
-
     let mut target_mesh = Mesh::new_empty();
     let eval_function = eval_function.lock().unwrap();
 
     let edge_table = &EDGE_TABLE.map(|e| format!("{:b}", e));
+
     let vertices = (0..x_count)
         .into_par_iter()
         .map(|x| {
@@ -69,26 +90,8 @@ pub fn marching_cubes(
                                 threshold,
                             );
 
-                            // triangles
-                            // Example: [7, 3, 2, 6, 7, 2, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1]
-                            // Triangles: [p7, p3, p2], [p6, p7, p2]
-                            let tris = TRI_TABLE[state];
-
                             // adding triangle verts
-                            let new_verts = tris
-                                .iter()
-                                .filter(|v| v != &&-1)
-                                .map(|t| {
-                                    let new_vert = Point3::new(
-                                        //converting Vec to array
-                                        edge_points[&(*t as usize)][2],
-                                        edge_points[&(*t as usize)][1],
-                                        edge_points[&(*t as usize)][0],
-                                    );
-                                    // target_mesh.vertices.push(new_vert);
-                                    new_vert
-                                })
-                                .collect::<Vec<Point>>();
+                            let new_verts = triangle_verts_from_state(edge_points, state);
                             new_verts
                         })
                         .flatten()
@@ -102,8 +105,6 @@ pub fn marching_cubes(
 
     target_mesh.vertices = vertices;
 
-    //////////////////////////////////////////////////////////////////////////////////////////////////////
-
     // creating triangles
     let mut v = 0;
     while v < target_mesh.vertices.len() {
@@ -114,6 +115,28 @@ pub fn marching_cubes(
     }
     println!("\nCube count: {}", x_count * y_count * z_count);
     return target_mesh;
+}
+
+fn triangle_verts_from_state(edge_points: HashMap<usize, Vec<f64>>, state: usize) -> Vec<Point> {
+    // triangles (TRI_TABLE[state])
+    // Example: [7, 3, 2, 6, 7, 2, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1]
+    // Triangles: [p7, p3, p2], [p6, p7, p2]
+    // adding triangle verts
+    let new_verts = TRI_TABLE[state]
+        .iter()
+        .filter(|v| v != &&-1)
+        .map(|t| {
+            let new_vert = Point3::new(
+                //converting Vec to array
+                edge_points[&(*t as usize)][2],
+                edge_points[&(*t as usize)][1],
+                edge_points[&(*t as usize)][0],
+            );
+            // target_mesh.vertices.push(new_vert);
+            new_vert
+        })
+        .collect::<Vec<Point>>();
+    new_verts
 }
 
 // ===========================================================
