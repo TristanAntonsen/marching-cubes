@@ -12,44 +12,6 @@ pub type Vector = Vector3<f64>;
 pub const ORIGIN: Point3<f64> = Point3::new(0.0, 0.0, 0.0);
 pub type EvalFunction = dyn Fn(Point) -> f64 + Sync;
 
-// ==========================================================
-// ======================= Voxel Grid =======================
-// ==========================================================
-
-pub struct VoxelGrid {
-    pub size_x: u32,
-    pub size_y: u32,
-    pub size_z: u32,
-    pub min_point: Point,
-    pub scale: f64,
-    pub values: Vec<Vec<Vec<f64>>>,
-}
-
-impl VoxelGrid {
-    pub fn get(&self, x: usize, y: usize, z: usize) -> f64 {
-        self.values[z][y][x]
-    }
-    pub fn set(&mut self, x: usize, y: usize, z: usize, v: f64) {
-        self.values[z][y][x] = v
-    }
-    pub fn voxel_corner_indices(&self, x: usize, y: usize, z: usize) -> [[usize; 3]; 8] {
-        // could be consolidated/more idiomatic
-        let c0 = [x, y, z];
-        let c1 = [x + 1, y, z];
-        let c2 = [x + 1, y + 1, z];
-        let c3 = [x, y + 1, z];
-        let c4 = [x, y, z + 1];
-        let c5 = [x + 1, y, z + 1];
-        let c6 = [x + 1, y + 1, z + 1];
-        let c7 = [x, y + 1, z + 1];
-        return [c0, c1, c2, c3, c4, c5, c6, c7];
-    }
-}
-
-// ===========================================================
-// ======================= Marching cubes ====================
-// ===========================================================
-
 // Marching cubes algorithm
 pub fn marching_cubes(
     eval_function: &Mutex<EvalFunction>,
@@ -323,6 +285,45 @@ pub fn interpolate_points(p0: Point, p1: Point, t: f64) -> Vec<f64> {
         .collect();
     pf
 }
+
+
+// ==========================================================
+// ======================= Voxel Grid =======================
+// ==========================================================
+
+pub struct VoxelGrid {
+    pub size_x: u32,
+    pub size_y: u32,
+    pub size_z: u32,
+    pub min_point: Point,
+    pub scale: f64,
+    pub values: Vec<Vec<Vec<f64>>>,
+}
+
+impl VoxelGrid {
+    pub fn get(&self, x: usize, y: usize, z: usize) -> f64 {
+        self.values[z][y][x]
+    }
+    pub fn set(&mut self, x: usize, y: usize, z: usize, v: f64) {
+        self.values[z][y][x] = v
+    }
+    pub fn voxel_corner_indices(&self, x: usize, y: usize, z: usize) -> [[usize; 3]; 8] {
+        // could be consolidated/more idiomatic
+        let c0 = [x, y, z];
+        let c1 = [x + 1, y, z];
+        let c2 = [x + 1, y + 1, z];
+        let c3 = [x, y + 1, z];
+        let c4 = [x, y, z + 1];
+        let c5 = [x + 1, y, z + 1];
+        let c6 = [x + 1, y + 1, z + 1];
+        let c7 = [x, y + 1, z + 1];
+        return [c0, c1, c2, c3, c4, c5, c6, c7];
+    }
+}
+
+// ===========================================================
+// ======================= Marching cubes ====================
+// ===========================================================
 
 // ==========================================================
 // ========================= Meshes =========================
