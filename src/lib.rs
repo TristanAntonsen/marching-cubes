@@ -1,6 +1,6 @@
 use byteorder::{LittleEndian, WriteBytesExt};
 use evalexpr::{eval_with_context, ContextWithMutableVariables, HashMapContext, Value};
-use nalgebra::{point, Point3, Vector3, distance, vector};
+use nalgebra::{distance, point, vector, Point3, Vector3};
 use rayon::prelude::*;
 use std::{collections::HashMap, fs, io::Write, sync::Mutex};
 
@@ -14,9 +14,6 @@ pub const ORIGIN: Point3<f64> = Point3::new(0.0, 0.0, 0.0);
 pub type CompiledFunction = dyn Fn(Point) -> f64 + Sync;
 pub type SymbolicExpression<'a> = &'a str;
 
-
-// const GLOBAL_NAMES: GlobalVarNames = GlobalVarNames::new();
-
 pub fn import_expression(filepath: &str) -> Result<String, Box<dyn std::error::Error>> {
     let data = fs::read_to_string(filepath)?;
     Ok(data)
@@ -24,19 +21,57 @@ pub fn import_expression(filepath: &str) -> Result<String, Box<dyn std::error::E
 
 fn init_context() -> HashMapContext {
     let mut context = HashMapContext::new();
-    context.set_value(String::from('x'), Value::from(0.)).unwrap();
-    context.set_value(String::from('y'), Value::from(0.)).unwrap();
-    context.set_value(String::from('z'), Value::from(0.)).unwrap();
+    context
+        .set_value(String::from('x'), Value::from(0.))
+        .unwrap();
+    context
+        .set_value(String::from('y'), Value::from(0.))
+        .unwrap();
+    context
+        .set_value(String::from('z'), Value::from(0.))
+        .unwrap();
 
     context
 }
 
 fn update_context(context: &mut HashMapContext, point: Point) -> &HashMapContext {
-    context.set_value(String::from('x'), Value::from(point.x)).unwrap();
-    context.set_value(String::from('y'), Value::from(point.y)).unwrap();
-    context.set_value(String::from('z'), Value::from(point.z)).unwrap();
+    context
+        .set_value(String::from('x'), Value::from(point.x))
+        .unwrap();
+    context
+        .set_value(String::from('y'), Value::from(point.y))
+        .unwrap();
+    context
+        .set_value(String::from('z'), Value::from(point.z))
+        .unwrap();
 
     context
+}
+
+pub struct Domain {
+    pub x: usize,
+    pub y: usize,
+    pub z: usize,
+    pub scale: f64,
+    pub min_point: Point
+}
+
+impl Domain {
+    pub fn new(span: [usize; 3], scale: f64) -> Self {
+        let min_point = point![
+            -1. * (span[0] as f64) * scale / 2.,
+            -1. * (span[1] as f64) * scale / 2.,
+            -1. * (span[2] as f64) * scale / 2.
+        ];
+
+        Self {
+            x: span[0],
+            y: span[1],
+            z: span[2],
+            scale: scale,
+            min_point: min_point
+        }
+    }
 }
 
 // Marching cubes algorithm (evaluated version)
@@ -52,7 +87,6 @@ pub fn marching_cubes_evaluated(
     let mut target_mesh = Mesh::new_empty();
 
     let edge_table = &EDGE_TABLE.map(|e| format!("{:b}", e));
-
 
     let vertices = (0..x_count)
         .into_par_iter()
@@ -436,33 +470,33 @@ impl VoxelGrid {
 // ===========================================================
 // mostly thanks to https://iquilezles.org/
 
-pub struct SDF { }
+pub struct SDF {}
 
 impl SDF {
     pub fn new() {}
-    
+
     pub fn sphere(p: Point, center: Point, r: f64) -> f64 {
         distance(&p, &center) - r
     }
-    
+
     pub fn rounded_box(p: Point, c: Point, s: Vector, r: f64) -> f64 {
         // Modified to account for the radius without changing the size of the box
-        // 
+        //
         let po = p - c;
         let pf: Vector = vector![po.x.abs(), po.y.abs(), po.z.abs()] - (s - vector![r, r, r]);
         return vector![pf.x.max(0.0), pf.y.max(0.0), pf.z.max(0.0)].norm()
             + pf.x.max(pf.y.max(pf.z)).min(0.0)
             - r;
     }
-    
+
     pub fn gyroid(p: Point, f: f64, t: f64) -> f64 {
         // f: frequency
         // t: thickness
-    
+
         let g = (f * p.x).sin() * (f * p.y).cos()
             + (f * p.y).sin() * (f * p.z).cos()
             + (f * p.z).sin() * (f * p.x).cos();
-    
+
         // g + 0.75
         (g + f).abs() - t
     }
@@ -486,7 +520,6 @@ impl SDF {
         // f64::max(d1, d2)
         -smooth_min(-d1, -d2, r)
     }
-
 }
 
 pub fn smooth_min(a: f64, b: f64, mut k: f64) -> f64 {
