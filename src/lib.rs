@@ -53,7 +53,7 @@ pub struct Domain {
     pub y: usize,
     pub z: usize,
     pub scale: f64,
-    pub min_point: Point
+    pub min_point: Point,
 }
 
 impl Domain {
@@ -69,7 +69,7 @@ impl Domain {
             y: span[1],
             z: span[2],
             scale: scale,
-            min_point: min_point
+            min_point: min_point,
         }
     }
 }
@@ -435,7 +435,7 @@ pub fn interpolate_points(p0: Point, p1: Point, t: f64) -> Vec<f64> {
 // ======================= Voxel Grid =======================
 // ==========================================================
 
-pub struct VoxelGrid {
+pub struct Buffer3D {
     pub size_x: u32,
     pub size_y: u32,
     pub size_z: u32,
@@ -444,7 +444,7 @@ pub struct VoxelGrid {
     pub values: Vec<Vec<Vec<f64>>>,
 }
 
-impl VoxelGrid {
+impl Buffer3D {
     pub fn get(&self, x: usize, y: usize, z: usize) -> f64 {
         self.values[z][y][x]
     }
