@@ -2,45 +2,86 @@
 ||||
 |:-:|:-:|:-:|
 <img src="https://github.com/TristanAntonsen/marching-cubes/blob/main/img/coarse_sphere.png">|<img src="https://github.com/TristanAntonsen/marching-cubes/blob/main/img/sinc.png">|<img src="https://github.com/TristanAntonsen/marching-cubes/blob/main/img/ripple_sphere_cube.png">
-$\sqrt{x^2+y^2+z^2}-r=0$|$z - Asinc(ω\sqrt{x^2+y^2}) = 0$|(SDFs) A sphere smoothly united with a cube and offset by a sinusoidal function based off of the cube
+$x^2+y^2+z^2-2500=0$|Plane (z) modulated with a sinc function|(SDFs) A sphere smoothly united with a cube and offset by a sinusoidal function based off of the cube
 10x10x10 grid|200x200x200 grid|200x200x200 grid
 ### Usage:
-The map() function will be evaluated at each point in the grid. This could be anything that returns a value, but some signed distance functions are provided as samples. The code will extract the isosurface $f{(x,y,z)=0}$ by default).
 
-This function will make a cube smoothly united with a sphere:
+The main program uses a simple CLI to extract the 0 isosurface from a symbolic expression.
+
+```zsh
+>cargo build --release
+>./target/release/marching_cubes --expr="x^2+y^2+z^2-2500"
+
+Cube count: 1000000
+Vertices: 282336
+Triangles: 94112
+
+Exported: marched.stl
+Time: 0 min 3.10 seconds
+```
+|Argument|Short|Long|Default|
+|:--|:--:|:--:|:--:|
+|Expression|-e|--expr||
+|.stl path|-e|--export-path|examples/marched.stl|
+|Grid scale|-s|--scale|1.|
+|Domain (centered)|-d|--domain|"[100, 100, 100]"|
+
+### Variations
+The crate provides three versions of marching cubes. Each one of these has an example file that can be run with:
+
+```zsh
+cargo run --release --example <example>
+```
+
+<u>1. Symbolic Expression</u>:
+
+Evaluate a symbolic expression at each grid point using the evalexpr crate. Multithreaded with [Rayon](https://crates.io/crates/rayon).
+
+x, y, and z will be updated at each sample point. Operators in the [evalexpr](https://crates.io/crates/evalexpr) crate are supported.
+
+```rust
+let expr = &"(.25*x)^2+(.25*y)^2-z-10";
+
+let mesh = marching_cubes_evaluated(
+    &expr,                    // expression to evaluate
+    point![-25., -25., -25.], // minimum bounding box point
+    100,                      // x count
+    100,                      // y count
+    100,                      // z count
+    0.,                       // isosurface value
+    1.,                       // scale
+);
+```
+<u>2. Precompiled</u>:
+Evaluate a precompiled function, `map()`. Very fast for obvious reasons (also multithreaded with [Rayon](https://crates.io/crates/rayon)).
+
+`map()` could be anything that returns a value, but some signed distance functions are provided as samples. The code will extract the isosurface where `map(Point)` = 0 by default).
+
+This sample function will make a cube smoothly united with a sphere:
 ```rust
 fn map(p: Point) -> f64 {
     let s = sdf::sphere(p, point![30., 30., 30.], 65.0);
     let b = sdf::rounded_box(p, point![-30., -30., -30.], vector![60., 60., 60.], 10.);
     sdf::boolean_union(b, s, 20.)
 }
+
 ```
 
-This function will plot the surface where $z - Asinc(ω\sqrt{x^2+y^2}) = 0$.
+<u>3. Discrete Data</u>:
+
+A 3D buffer of discrete data is sampled for the algorithm. In the example, a `map(Point)` function is used to populate the voxels, but any discrete data could be used.
+
 ```rust
-fn map(p: Point) -> f64 {
-    let w = 0.375; // frequency
-    let a = 20.;   // amplitude
-    return p.z - a * (f * (p.x.powf(2.) + p.y.powf(2.)).sqrt()).sinc()
-}
-```
-
-To run the program:
-```zsh
->cargo run --release
-
-Cube count: 7880599
-Vertices: 943872
-Triangles: 314624
-
-Exported: marched.stl
-Time: 0 min 1.48 seconds
+let mesh = marching_cubes_buffer(
+    &buffer,    // discrete 3D data
+    0.          // isosurface value
+);
 ```
 ---
 ### Why?
 Volumetric information -> Surface of triangles
 
-#### How?:
+### How?:
 1. The algorithm iterates through a uniform 3D grid, sampling 8 points (cube vertices) of $f{(x,y,z)}$ at once
 2. There are 256 possible binary (in or out of the isosurface) states of the 8 vertices. Clever lookup tables indexed by from 8 bit lookup indices return vertex configurations to form the corresponding triangles.
 
@@ -51,7 +92,7 @@ Much better explanations can be found here:
 
 ---
 ### Future improvements
-- Multiprocessing with [Rayon](https://crates.io/crates/rayon)
-- Optimize to reduce redundant queries
-- Expression evaluator with something like [evalexpr](https://crates.io/crates/evalexpr)
+- Refactor for less redundancy
+- Multithread the discrete data version
+- Optimize to reduce redundant queries(overlapping corners)
 - More idiomatic Rust
