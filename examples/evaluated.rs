@@ -8,13 +8,13 @@ fn main() {
     let expr = &import_expression("examples/expr.txt").expect("Could not import expression.");
 
     let mesh = marching_cubes_evaluated(
-        &expr,            // function to evaluate
+        &expr,                    // expression to evaluate
         point![-25., -25., -25.], // minimum bounding box point
-        100,                         // x count
-        100,                         // y count
-        100,                         // z count
-        0.,                          // isosurface value
-        1.,                          // scale
+        100,                      // x count
+        100,                      // y count
+        100,                      // z count
+        0.,                       // isosurface value
+        1.,                       // scale
     );
     // // exporting to stl
     let file_path = "examples/evaluated.stl";

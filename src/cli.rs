@@ -7,7 +7,7 @@ pub struct Args {
     #[arg(short, long)]
     pub expr: String,
 
-    #[arg(short, long, default_value = "marched.stl")]
+    #[arg(short, long, default_value = "examples/marched.stl")]
     pub export_path: String,
 
     #[arg(short, long, default_value = "1.")]
