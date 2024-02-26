@@ -12,16 +12,16 @@ fn main() {
     let file_path = &args.export_path;
     
     let mesh = marching_cubes_evaluated(
-        &expr,                       // function to evaluate
-        domain.min_point,    // minimum bounding box point
-        domain.x,                         // x count
-        domain.y,                         // y count
-        domain.z,                         // z count
-        0.,                          // isosurface value
-        domain.scale,                          // scale
+        &expr,             // function to evaluate
+        domain.min_point,  // minimum bounding box point
+        domain.x,          // x count
+        domain.y,          // y count
+        domain.z,          // z count
+        0.,                // isosurface value
+        domain.scale,      // scale
     );
 
-    // // exporting to stl
+    // exporting to stl
     mesh.export_stl(file_path);
 
     let elapsed = now.elapsed().as_secs_f64();

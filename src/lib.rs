@@ -74,6 +74,86 @@ impl Domain {
     }
 }
 
+// Marching cubes algorithm (discrete data version)
+pub fn marching_cubes_buffer(buffer: &Buffer3D, threshold: f64) -> Mesh {
+    let mut target_mesh = Mesh::new_empty();
+
+    let edge_table = &EDGE_TABLE.map(|e| format!("{:b}", e));
+
+    let vertices = (0..buffer.size_x-1)
+        .into_par_iter()
+        .map(|x| {
+            (0..buffer.size_y-1)
+                .map(|y| {
+                    (0..buffer.size_z-1)
+                        .map(|z| {
+                            // corner positions
+                            // There's some redundancy/overlap that could be optimized
+                            let corner_indices = buffer.voxel_corner_indices(x, y, z);
+
+                            let corner_values = corner_indices
+                                .iter()
+                                .map(|p| buffer.get(p[0], p[1], p[2]))
+                                .collect::<Vec<f64>>();
+
+                            let corner_positions = corner_indices
+                                .iter()
+                                .map(|p| {
+                                    add_points(
+                                        buffer.min_point,
+                                        point![p[0] as f64, p[1] as f64, p[2] as f64]
+                                            * buffer.scale,
+                                    )
+                                })
+                                .collect::<Vec<Point>>();
+
+                            // Calculating state
+                            let state =
+                                get_state(&corner_values, threshold).expect("Could not get state");
+
+                            // edges
+                            // Example: 11001100
+                            // Edges 2, 3, 6, 7 are intersected
+                            let edges_bin_string = &edge_table[state];
+
+                            // Indices of edge endpoints (List of pairs)
+                            let (endpoint_indices, edges_to_use) =
+                                get_edge_endpoints(edges_bin_string, &CORNER_POINT_INDICES);
+
+                            // finding midpoints of edges
+                            let edge_points = get_edge_midpoints(
+                                endpoint_indices,
+                                edges_to_use,
+                                corner_positions,
+                                corner_values,
+                                threshold,
+                            );
+
+                            // adding triangle verts
+                            let new_verts = triangle_verts_from_state(edge_points, state);
+                            new_verts
+                        })
+                        .flatten()
+                        .collect::<Vec<Point>>()
+                })
+                .flatten()
+                .collect::<Vec<Point>>()
+        })
+        .flatten()
+        .collect::<Vec<Point>>();
+
+    // Adding vertices to the mesh
+    target_mesh.set_vertices(vertices);
+
+    // Creating triangles from the vertices
+    target_mesh.create_triangles();
+
+    println!(
+        "\nCube count: {}",
+        buffer.size_x * buffer.size_y * buffer.size_z
+    );
+    return target_mesh;
+}
 // Marching cubes algorithm (evaluated version)
 pub fn marching_cubes_evaluated(
     expression: SymbolicExpression,
@@ -436,15 +516,28 @@ pub fn interpolate_points(p0: Point, p1: Point, t: f64) -> Vec<f64> {
 // ==========================================================
 
 pub struct Buffer3D {
-    pub size_x: u32,
-    pub size_y: u32,
-    pub size_z: u32,
+    pub size_x: usize,
+    pub size_y: usize,
+    pub size_z: usize,
     pub min_point: Point,
     pub scale: f64,
     pub values: Vec<Vec<Vec<f64>>>,
 }
 
 impl Buffer3D {
+    pub fn new(size_x: usize, size_y: usize, size_z: usize) -> Self {
+        let scale = 1.;
+        let min_point = point![size_x as f64 / 2., size_y as f64 / 2., size_z as f64 / 2.];
+        let values = vec![vec![vec![0.; size_x]; size_y]; size_z];
+        Self {
+            size_x,
+            size_y,
+            size_z,
+            min_point,
+            scale,
+            values,
+        }
+    }
     pub fn get(&self, x: usize, y: usize, z: usize) -> f64 {
         self.values[z][y][x]
     }
@@ -462,6 +555,19 @@ impl Buffer3D {
         let c6 = [x + 1, y + 1, z + 1];
         let c7 = [x, y + 1, z + 1];
         return [c0, c1, c2, c3, c4, c5, c6, c7];
+    }
+    pub fn fill(&mut self, function: &CompiledFunction) {
+        (0..self.size_x).for_each(|x| {
+            (0..self.size_y).for_each(|y| {
+                (0..self.size_z).for_each(|z| {
+                    let p = add_points(
+                        point![x as f64, y as f64, z as f64] * self.scale,
+                        self.min_point,
+                    );
+                    self.set(x as usize, y as usize, z as usize, function(p))
+                })
+            })
+        });
     }
 }
 
