@@ -27,13 +27,13 @@ Time: 0 min 3.10 seconds
 |Domain (centered)|-d|--domain|"[100, 100, 100]"|
 
 ### Variations
-The crate provides three versions of marching cubes. Each one of these has an example file that can be run with:
+The crate provides four versions of marching cubes. Each one of these has an example file that can be run with:
 
 ```zsh
 cargo run --release --example <example>
 ```
 
-<u>1. Symbolic Expression</u>:
+<u>1. Symbolic Expression (evalexpr)</u>:
 
 Evaluate a symbolic expression at each grid point using the evalexpr crate. Multithreaded with [Rayon](https://crates.io/crates/rayon).
 
@@ -57,6 +57,17 @@ Evaluate a precompiled function, `map()`. Very fast for obvious reasons (also mu
 
 `map()` could be anything that returns a value, but some signed distance functions are provided as samples. The code will extract the isosurface where `map(Point)` = 0 by default).
 
+```rust
+let mesh = marching_cubes_compiled(
+    &thread_safe_map,            // function to evaluate
+    point![-100., -100., -100.], // minimum bounding box point
+    200,                         // x count
+    200,                         // y count
+    200,                         // z count
+    0.,                          // isosurface value
+    1.,                          // scale
+);
+```
 This sample function will make a cube smoothly united with a sphere:
 ```rust
 fn map(p: Point) -> f64 {
@@ -77,9 +88,28 @@ let mesh = marching_cubes_buffer(
     0.          // isosurface value
 );
 ```
+<u>4. Symbolic Expression (fidget)</u>:
+
+Evaluate a symbolic expression at each grid point using Matt Keeter's [Fidget](https://github.com/mkeeter/fidget). Multithreaded with [Rayon](https://crates.io/crates/rayon).
+
+x, y, and z will be updated at each sample point. Operators in the [rhai](https://crates.io/crates/rhai) crate are supported.
+
+```rust
+let expr = "x*x + y*y + z*z - 2500";
+
+let mesh = marching_cubes_fidget(
+    &expr,                    // expression to evaluate
+    point![-100., -100., -100.], // minimum bounding box point
+    200,                      // x count
+    200,                      // y count
+    200,                      // z count
+    0.,                       // isosurface value
+    1.,                       // scale
+);
+```
 ---
 ### Why?
-Volumetric information -> Surface of triangles
+Volumetric information (e.g. implicit surfaces) -> Surface of triangles
 
 ### How?:
 1. The algorithm iterates through a uniform 3D grid, sampling 8 points (cube vertices) of $f{(x,y,z)}$ at once
@@ -92,7 +122,7 @@ Much better explanations can be found here:
 
 ---
 ### Future improvements
+- Optimize to reduce obviously redundant queries (overlapping corners)
 - Refactor for less redundancy
 - Multithread the discrete data version
-- Optimize to reduce redundant queries(overlapping corners)
 - More idiomatic Rust
