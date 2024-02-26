@@ -1,13 +1,13 @@
 extern crate marching_cubes;
-use marching_cubes::{import_expression, marching_cubes_evaluated};
+use marching_cubes::marching_cubes_fidget;
 use nalgebra::point;
 use std::time::Instant;
 
 fn main() {
     let now = Instant::now();
-    let expr = &import_expression("examples/expr.txt").expect("Could not import expression.");
+    let expr = "x*x + y*y + z*z - 2500";
 
-    let mesh = marching_cubes_evaluated(
+    let mesh = marching_cubes_fidget(
         &expr,                    // expression to evaluate
         point![-100., -100., -100.], // minimum bounding box point
         200,                      // x count
@@ -23,6 +23,6 @@ fn main() {
     let elapsed = now.elapsed().as_secs_f64();
     let s = elapsed % 60.;
     let min = (elapsed / 60.).floor() as u8;
-    println!("Exported: {}", file_path);
+    // println!("Exported: {}", file_path);
     println!("Time: {} min {:.2?} seconds\n", min, s);
 }

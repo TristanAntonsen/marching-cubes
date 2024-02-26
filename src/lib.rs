@@ -1,5 +1,9 @@
 use byteorder::{LittleEndian, WriteBytesExt};
 use evalexpr::{eval_with_context, ContextWithMutableVariables, HashMapContext, Value};
+use fidget::{
+    eval::{EzShape, MathShape, Shape, TracingEvaluator},
+    vm::VmShape,
+};
 use nalgebra::{distance, point, vector, Point3, Vector3};
 use rayon::prelude::*;
 use std::{collections::HashMap, fs, io::Write, sync::Mutex};
@@ -80,12 +84,12 @@ pub fn marching_cubes_buffer(buffer: &Buffer3D, threshold: f64) -> Mesh {
 
     let edge_table = &EDGE_TABLE.map(|e| format!("{:b}", e));
 
-    let vertices = (0..buffer.size_x-1)
+    let vertices = (0..buffer.size_x - 1)
         .into_par_iter()
         .map(|x| {
-            (0..buffer.size_y-1)
+            (0..buffer.size_y - 1)
                 .map(|y| {
-                    (0..buffer.size_z-1)
+                    (0..buffer.size_z - 1)
                         .map(|z| {
                             // corner positions
                             // There's some redundancy/overlap that could be optimized
@@ -155,6 +159,97 @@ pub fn marching_cubes_buffer(buffer: &Buffer3D, threshold: f64) -> Mesh {
     return target_mesh;
 }
 // Marching cubes algorithm (evaluated version)
+pub fn marching_cubes_fidget(
+    expr: &str,
+    min_point: Point,
+    x_count: usize,
+    y_count: usize,
+    z_count: usize,
+    threshold: f64,
+    scale: f64,
+) -> Mesh {
+    let mut target_mesh = Mesh::new_empty();
+
+    let edge_table = &EDGE_TABLE.map(|e| format!("{:b}", e));
+
+    let (sum, ctx) = fidget::rhai::eval(expr).expect("Could not evaluate");
+    let shape = VmShape::new(&ctx, sum).expect("Could not build shape.");
+    let tape = shape.ez_interval_tape();
+
+    let vertices = (0..x_count)
+        .into_par_iter()
+        .map(|x| {
+            let mut point_eval = VmShape::new_point_eval(); // per thread basis
+            (0..y_count)
+                .map(|y| {
+                    (0..z_count)
+                        .map(|z| {
+                            // corner positions
+                            // There's some redundancy/overlap that could be optimized
+                            let corner_positions = get_corner_positions(min_point, x, y, z, scale);
+
+                            // voxel values (evaluated sdf)
+                            let eval_corners = corner_positions
+                                .iter()
+                                .map(|p| {
+                                    let (out, _trace) = point_eval
+                                        .eval(
+                                            &tape,
+                                            p.x as f32, // X
+                                            p.y as f32, // Y
+                                            p.z as f32, // Z
+                                            &[],        // variables (unused)
+                                        )
+                                        .expect("Could not perform interval evaluation");
+                                    out as f64
+                                })
+                                .collect();
+
+                            // Calculating state
+                            let state =
+                                get_state(&eval_corners, threshold).expect("Could not get state");
+
+                            // edges
+                            // Example: 11001100
+                            // Edges 2, 3, 6, 7 are intersected
+                            let edges_bin_string = &edge_table[state];
+
+                            // Indices of edge endpoints (List of pairs)
+                            let (endpoint_indices, edges_to_use) =
+                                get_edge_endpoints(edges_bin_string, &CORNER_POINT_INDICES);
+
+                            // finding midpoints of edges
+                            let edge_points = get_edge_midpoints(
+                                endpoint_indices,
+                                edges_to_use,
+                                corner_positions,
+                                eval_corners,
+                                threshold,
+                            );
+
+                            // adding triangle verts
+                            let new_verts = triangle_verts_from_state(edge_points, state);
+                            new_verts
+                        })
+                        .flatten()
+                        .collect::<Vec<Point>>()
+                })
+                .flatten()
+                .collect::<Vec<Point>>()
+        })
+        .flatten()
+        .collect::<Vec<Point>>();
+
+    // Adding vertices to the mesh
+    target_mesh.set_vertices(vertices);
+
+    // Creating triangles from the vertices
+    target_mesh.create_triangles();
+
+    println!("\nCube count: {}", x_count * y_count * z_count);
+    return target_mesh;
+}
+
 pub fn marching_cubes_evaluated(
     expression: SymbolicExpression,
     min_point: Point,

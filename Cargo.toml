@@ -14,3 +14,4 @@ noise = "0.8.2"
 rayon="1.8.1"
 evalexpr = "11.3.0"
 clap = { version="4.5.1", features = [ "derive" ]}
+fidget = { path = "../repos/fidget/fidget" }
