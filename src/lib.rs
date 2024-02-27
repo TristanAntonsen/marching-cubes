@@ -200,7 +200,7 @@ pub fn marching_cubes_fidget(
                                             p.z as f32, // Z
                                             &[],        // variables (unused)
                                         )
-                                        .expect("Could not perform interval evaluation");
+                                        .expect("Could not perform point evaluation");
                                     out as f64
                                 })
                                 .collect();
@@ -325,7 +325,7 @@ pub fn marching_cubes_evaluated(
     // Adding vertices to the mesh
     target_mesh.set_vertices(vertices);
 
-    // Creating triangles from the vertices
+    // Creating trianglses from the vertices
     target_mesh.create_triangles();
 
     println!("\nCube count: {}", x_count * y_count * z_count);

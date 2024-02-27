@@ -15,6 +15,9 @@ pub struct Args {
 
     #[arg(short, long, default_value = "[100, 100, 100]")]
     pub domain: String,
+
+    #[arg(short, long, default_value = "evalexpr")]
+    pub mode: String,
 }
 
 impl Args {
