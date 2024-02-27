@@ -10,7 +10,7 @@ The main program uses a simple CLI to extract the 0 isosurface from a symbolic e
 
 ```zsh
 >cargo build --release
->./target/release/marching_cubes --expr="x^2+y^2+z^2-2500"
+>./target/release/marching-cubes --expr="x^2+y^2+z^2-2500"
 
 Cube count: 1000000
 Vertices: 282336
@@ -25,6 +25,7 @@ Time: 0 min 3.10 seconds
 |.stl path|-e|--export-path|examples/marched.stl|
 |Grid scale|-s|--scale|1.|
 |Domain (centered)|-d|--domain|"[100, 100, 100]"|
+|Mode |-m|--mode|"evalexpr"|
 
 ### Variations
 The crate provides four versions of marching cubes. Each one of these has an example file that can be run with:
@@ -107,6 +108,13 @@ let mesh = marching_cubes_fidget(
     1.,                       // scale
 );
 ```
+---
+Quick & dirty benchmark:
+|Example|Time(s)|Multithreaded|
+| -------- | :--------: | :--------------: |
+|compiled|0.04|yes|
+|fidget  |0.11|yes|
+|evalexpr|7.24|yes|
 ---
 ### Why?
 Volumetric information (e.g. implicit surfaces) -> Surface of triangles
