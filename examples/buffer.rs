@@ -1,5 +1,5 @@
 extern crate marching_cubes;
-use marching_cubes::{marching_cubes_buffer, Buffer3D, Point, SDF};
+use marching_cubes::{marching_cubes_buffer, VoxelGrid, Point, SDF};
 use nalgebra::{point, vector};
 use std::time::Instant;
 
@@ -13,7 +13,7 @@ fn main() {
         SDF::boolean_union(b - 1. * (0.5 * s).sin(), s, 20.)
     }
     
-    let mut buffer = Buffer3D::new(200, 200, 200);
+    let mut buffer = VoxelGrid::new(200, 200, 200);
     buffer.fill(&map);
     let t1 = now.elapsed().as_secs_f64();
 

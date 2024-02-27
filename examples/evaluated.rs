@@ -9,10 +9,10 @@ fn main() {
 
     let mesh = marching_cubes_evaluated(
         &expr,                    // expression to evaluate
-        point![-100., -100., -100.], // minimum bounding box point
-        200,                      // x count
-        200,                      // y count
-        200,                      // z count
+        point![-50., -50., -50.], // minimum bounding box point
+        100,                      // x count
+        100,                      // y count
+        100,                      // z count
         0.,                       // isosurface value
         1.,                       // scale
     );

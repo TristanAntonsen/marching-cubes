@@ -5,7 +5,7 @@ use fidget::{
     vm::VmShape,
 };
 use nalgebra::{distance, point, vector, Point3, Vector3};
-use rayon::prelude::*;
+use rayon::{prelude::*, vec};
 use std::{collections::HashMap, fs, io::Write, sync::Mutex};
 
 // ==========================================================
@@ -79,7 +79,7 @@ impl Domain {
 }
 
 // Marching cubes algorithm (discrete data version)
-pub fn marching_cubes_buffer(buffer: &Buffer3D, threshold: f64) -> Mesh {
+pub fn marching_cubes_buffer(buffer: &VoxelGrid, threshold: f64) -> Mesh {
     let mut target_mesh = Mesh::new_empty();
 
     let edge_table = &EDGE_TABLE.map(|e| format!("{:b}", e));
@@ -262,6 +262,8 @@ pub fn marching_cubes_evaluated(
     let mut target_mesh = Mesh::new_empty();
 
     let edge_table = &EDGE_TABLE.map(|e| format!("{:b}", e));
+
+    let mut evaluated : HashMap<[usize; 3], f64>= HashMap::new();
 
     let vertices = (0..x_count)
         .into_par_iter()
@@ -610,20 +612,22 @@ pub fn interpolate_points(p0: Point, p1: Point, t: f64) -> Vec<f64> {
 // ======================= Voxel Grid =======================
 // ==========================================================
 
-pub struct Buffer3D {
+pub struct VoxelGrid {
     pub size_x: usize,
     pub size_y: usize,
     pub size_z: usize,
     pub min_point: Point,
     pub scale: f64,
     pub values: Vec<Vec<Vec<f64>>>,
+    pub grid_points: Vec<Vec<Vec<Point>>>,
 }
 
-impl Buffer3D {
+impl VoxelGrid {
     pub fn new(size_x: usize, size_y: usize, size_z: usize) -> Self {
         let scale = 1.;
         let min_point = point![size_x as f64 / 2., size_y as f64 / 2., size_z as f64 / 2.];
         let values = vec![vec![vec![0.; size_x]; size_y]; size_z];
+        let grid_points = vec![vec![vec![point![0.,0.,0.]; size_x]; size_y]; size_z];
         Self {
             size_x,
             size_y,
@@ -631,6 +635,7 @@ impl Buffer3D {
             min_point,
             scale,
             values,
+            grid_points
         }
     }
     pub fn get(&self, x: usize, y: usize, z: usize) -> f64 {
