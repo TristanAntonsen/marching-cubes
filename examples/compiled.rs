@@ -8,9 +8,10 @@ fn main() {
 
     // The function that gets marched
     fn map(p: Point) -> f64 {
-        let s = SDF::sphere(p, point![30., 30., 30.], 65.0);
+        let s = SDF::sphere(p, point![0., 0., 0.], 50.0);
         let b = SDF::rounded_box(p, point![-30., -30., -30.], vector![60., 60., 60.], 10.);
-        SDF::boolean_union(b - 1. * (0.5 * s).sin(), s, 20.)
+        SDF::boolean_union(b - 1. * (0.5 * s).sin(), s, 20.);
+        s
     }
 
     // Create a closure that implements the CompiledFunction trait. This enables multi-threading

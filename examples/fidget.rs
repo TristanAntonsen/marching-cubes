@@ -17,12 +17,12 @@ fn main() {
         1.,                       // scale
     );
     // // exporting to stl
-    let file_path = "examples/evaluated.stl";
+    let file_path = "examples/fidget.stl";
     mesh.export_stl(file_path);
 
     let elapsed = now.elapsed().as_secs_f64();
     let s = elapsed % 60.;
     let min = (elapsed / 60.).floor() as u8;
-    // println!("Exported: {}", file_path);
+    println!("Exported: {}", file_path);
     println!("Time: {} min {:.2?} seconds\n", min, s);
 }
