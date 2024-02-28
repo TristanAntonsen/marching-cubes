@@ -174,7 +174,7 @@ pub fn marching_cubes_fidget(
 
     let (sum, ctx) = fidget::rhai::eval(expr).expect("Could not evaluate");
     let shape = VmShape::new(&ctx, sum).expect("Could not build shape.");
-    let tape = shape.ez_interval_tape();
+    let tape = shape.ez_point_tape();
 
     let vertices = (0..x_count)
         .into_par_iter()
